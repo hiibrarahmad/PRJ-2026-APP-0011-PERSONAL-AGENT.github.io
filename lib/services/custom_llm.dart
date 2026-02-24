@@ -18,6 +18,7 @@
 
 import 'dart:async';
 import 'dart:convert';
+import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import '../constants/prompt_constants.dart';
 import '../utils/sp_util.dart';
@@ -34,6 +35,16 @@ class CustomLLM extends BaseLLM {
 
   CustomLLM({String? systemPrompt})
     : _systemPrompt = systemPrompt ?? systemPromptOfChat;
+
+  String _maskToken(String token) {
+    if (token.isEmpty) {
+      return 'empty';
+    }
+    if (token.length <= 4) {
+      return '***$token';
+    }
+    return '***${token.substring(token.length - 4)}';
+  }
 
   @override
   LLMType get type => LLMType.customLLM;
@@ -74,11 +85,22 @@ class CustomLLM extends BaseLLM {
       _apiKey = 'Bearer $llmToken';
       _baseUrl = llmUrl;
       _model = llmModel;
+      if (kDebugMode) {
+        final tokenSource = userLlmToken.isNotEmpty ? 'user_prefs' : 'env_default';
+        print(
+          'CustomLLM init: enabled=$_isEnabled source=$tokenSource token=${_maskToken(llmToken)} url=$_baseUrl model=$_model',
+        );
+      }
     } else {
       _isEnabled = false;
       _apiKey = '';
       _baseUrl = '';
       _model = '';
+      if (kDebugMode) {
+        print(
+          'CustomLLM init: enabled=$_isEnabled (missing token/url/model)',
+        );
+      }
     }
   }
 
@@ -109,6 +131,12 @@ class CustomLLM extends BaseLLM {
         {"role": "user", "content": content},
       ],
     });
+
+    if (kDebugMode) {
+      print(
+        'CustomLLM request: url=$_baseUrl model=${config?.model ?? _model} token=${_maskToken(_apiKey.replaceFirst("Bearer ", ""))}',
+      );
+    }
 
     final response = await http.post(url, headers: headers, body: body);
     return _handleResponse(response);

@@ -156,7 +156,8 @@ class _HomeChatScreenState extends State<HomeChatScreen>
       }
 
       for (final pairedDevice in pairedDevices) {
-        if (pairedDevice.platformName.startsWith("Buddie")) {
+        // Relaxed rule: treat any bonded Bluetooth earbud/device as eligible.
+        if (pairedDevice.remoteId.str.isNotEmpty) {
           found = true;
           break;
         }

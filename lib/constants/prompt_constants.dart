@@ -15,7 +15,7 @@ Chat Session: {Previous dialogue in chronological order}
 User Input: {current query}
 
 # Response Language
-Simplified Chinese
+English
 
 """;
 
@@ -35,7 +35,7 @@ const String systemPromptOfHelp = """
   
   
   # Response Language
-  Simplified Chinese
+  English
     
   """;
 

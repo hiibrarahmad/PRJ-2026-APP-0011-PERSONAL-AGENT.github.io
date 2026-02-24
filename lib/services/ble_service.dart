@@ -54,15 +54,18 @@ class BleService {
   BleService._internal();
 
   // 当前蓝牙连接状态，初始为断开
-  BluetoothConnectionState _connectionState = BluetoothConnectionState.disconnected;
+  BluetoothConnectionState _connectionState =
+      BluetoothConnectionState.disconnected;
   // 当前设备对象
   BluetoothDevice? _device;
   // 监听连接状态的订阅
   StreamSubscription<BluetoothConnectionState>? _connectionStateSubscription;
   // 设备名称
   String? deviceName;
+  bool _hasBuddieDataChannel = false;
 
-  final StreamController<Uint8List> _dataController = StreamController<Uint8List>();
+  final StreamController<Uint8List> _dataController =
+      StreamController<Uint8List>();
   Stream<Uint8List> get dataStream => _dataController.stream;
   StreamSubscription<List<int>>? _dataSubscription;
 
@@ -74,6 +77,69 @@ class BleService {
 
   // 用于连接状态变化的防抖定时器
   Timer? _debounceTimer;
+
+  String _resolveDeviceName() {
+    final platformName = _device?.platformName ?? '';
+    if (platformName.isNotEmpty) return platformName;
+    final advName = _device?.advName ?? '';
+    if (advName.isNotEmpty) return advName;
+    return _device?.remoteId.toString() ?? 'Unknown device';
+  }
+
+  Future<void> _configureConnectionLink() async {
+    if (_device == null) return;
+    if (Platform.isAndroid) {
+      try {
+        // Best-effort tuning for Android BLE link quality.
+        await _device!.requestMtu(247);
+        await _device!.requestConnectionPriority(
+          connectionPriorityRequest: ConnectionPriority.high,
+        );
+        await _device!.setPreferredPhy(
+          txPhy: Phy.le2m.mask,
+          rxPhy: Phy.le2m.mask,
+          option: PhyCoding.noPreferred,
+        );
+      } catch (e) {
+        dev.log('BLE link tuning skipped: $e');
+      }
+    } else {
+      _device!.mtu.listen((int mtu) {
+        debugPrint("BLE MTU: $mtu");
+      });
+    }
+  }
+
+  Future<bool> _tryEnableBuddieDataChannel() async {
+    if (_device == null) return false;
+    try {
+      // Keep the original Buddie-specific BLE data channel as preferred.
+      final services = await _device!.discoverServices();
+      final service = services.firstWhereOrNull(
+        (item) => item.uuid.toString() == "ae00",
+      );
+      if (service == null) {
+        return false;
+      }
+
+      final chr = service.characteristics.firstWhereOrNull(
+        (item) => item.uuid.toString() == "ae04",
+      );
+      if (chr == null) {
+        return false;
+      }
+
+      await chr.setNotifyValue(true);
+      _dataSubscription?.cancel();
+      _dataSubscription = chr.onValueReceived.listen((value) {
+        _dataController.add(Uint8List.fromList(value));
+      });
+      return true;
+    } catch (e) {
+      dev.log('Buddie data channel unavailable: $e');
+      return false;
+    }
+  }
 
   /// 初始化服务
   ///
@@ -125,62 +191,40 @@ class BleService {
         if (state == BluetoothConnectionState.connected) {
           // 连接成功后延迟处理，保证稳定
           await Future.delayed(Duration(milliseconds: 3000));
-          // 使用Buddie时，借助BLE传输语音数据，通知前台任务停止麦克风录音
-          FlutterForegroundTask.sendDataToTask(Constants.actionStopMicrophone);
-          FlutterForegroundTask.sendDataToMain({
-            'connectionState': true,
-            'deviceName': _device?.advName,
-            'deviceId': _device?.remoteId.toString(),
-          });
-          if (Platform.isAndroid) {
-            // Android 平台下请求更大的 MTU 和高优先级连接
-            await _device!.requestMtu(247);
-            await _device!.requestConnectionPriority(
-              connectionPriorityRequest: ConnectionPriority.high,
-            );
-            // 设置 PHY 参数
-            await _device!.setPreferredPhy(
-              txPhy: Phy.le2m.mask,
-              rxPhy: Phy.le2m.mask,
-              option: PhyCoding.noPreferred,
+          await _configureConnectionLink();
+          _hasBuddieDataChannel = await _tryEnableBuddieDataChannel();
+
+          if (_hasBuddieDataChannel) {
+            // Preserve original behavior when Buddie BLE audio channel exists.
+            FlutterForegroundTask.sendDataToTask(
+              Constants.actionStopMicrophone,
             );
           } else {
-            _device!.mtu.listen((int mtu) {
-              debugPrint("BLE MTU: $mtu");
-            });
+            // Generic earbuds stay connected, but keep phone microphone path.
+            FlutterForegroundTask.sendDataToTask(
+              Constants.actionStartMicrophone,
+            );
           }
 
-          List<BluetoothService> services = await _device!.discoverServices();
-
-          BluetoothService? service = services.firstWhereOrNull(
-            (service) => service.uuid.toString() == "ae00",
-          );
-          if (service == null) return;
-          dev.log('Service found: ${service.uuid.toString()}');
-
-          var characteristics = service.characteristics;
-
-          BluetoothCharacteristic? chr = characteristics.firstWhereOrNull(
-            (characteristic) => characteristic.uuid.toString() == "ae04",
-          );
-          if (chr == null) return;
-
-          dev.log('Characteristic found: ${chr.uuid.toString()}');
-
-          await chr.setNotifyValue(true);
-          _dataSubscription?.cancel();
-          _dataSubscription = chr.onValueReceived.listen((value) {
-            _dataController.add(Uint8List.fromList(value));
+          FlutterForegroundTask.sendDataToMain({
+            'connectionState': true,
+            'deviceName': _resolveDeviceName(),
+            'deviceId': _device?.remoteId.toString(),
+            'bleDataChannelReady': _hasBuddieDataChannel,
           });
         } else if (state == BluetoothConnectionState.disconnected) {
+          _hasBuddieDataChannel = false;
+          _dataSubscription?.cancel();
+          _dataSubscription = null;
           FlutterForegroundTask.sendDataToTask(Constants.actionStartMicrophone);
           FlutterForegroundTask.sendDataToMain({
             'connectionState': false,
-            'deviceName': _device?.advName,
+            'deviceName': _resolveDeviceName(),
             'deviceId': _device?.remoteId.toString(),
+            'bleDataChannelReady': false,
           });
           dev.log(
-            "${_device!.disconnectReason?.code} ${_device!.disconnectReason?.description}",
+            "${_device?.disconnectReason?.code} ${_device?.disconnectReason?.description}",
           );
         }
       });
@@ -190,6 +234,9 @@ class BleService {
   /// 忘记设备：断开并清除保存的设备信息
   void forgetDevice() {
     _device?.disconnect();
+    _dataSubscription?.cancel();
+    _dataSubscription = null;
+    _hasBuddieDataChannel = false;
     FlutterForegroundTask.removeData(key: 'deviceRemoteId');
     FlutterForegroundTask.removeData(key: 'deviceName');
   }
@@ -197,6 +244,8 @@ class BleService {
   /// 释放资源，取消订阅并关闭数据流
   void dispose() {
     _connectionStateSubscription?.cancel();
+    _dataSubscription?.cancel();
+    _debounceTimer?.cancel();
     _dataController.close();
   }
 }

@@ -74,9 +74,41 @@ class _BLEScreenState extends State<BLEScreen> {
     }
   }
 
-  // identify whether match the blue device
-  bool _isFirstThreeMatch(String id1, String id2) {
-    return id1.substring(0, 9) == id2.substring(0, 9);
+  bool _isSameDeviceByIdOrName(BluetoothDevice paired, ScanResult scanned) {
+    final pairedId = paired.remoteId.str.toLowerCase();
+    final scannedId = scanned.device.remoteId.str.toLowerCase();
+    if (pairedId == scannedId) {
+      return true;
+    }
+
+    final pairedName = paired.platformName.trim().toLowerCase();
+    final scannedName = getDeviceName(scanned).trim().toLowerCase();
+    return pairedName.isNotEmpty &&
+        scannedName.isNotEmpty &&
+        pairedName == scannedName;
+  }
+
+  bool _isBondedScanResult(ScanResult result) {
+    // Relaxed matching: allow any bonded earbud/device instead of only "Buddie*".
+    if (pairedDevices.isEmpty) {
+      // iOS may not always expose bonded list in the same way.
+      return Platform.isIOS;
+    }
+
+    return pairedDevices.any(
+      (device) => _isSameDeviceByIdOrName(device, result),
+    );
+  }
+
+  void _upsertScannedDevice(ScanResult result) {
+    final idx = _devices.indexWhere(
+      (item) => item.device.remoteId.str == result.device.remoteId.str,
+    );
+    if (idx >= 0) {
+      _devices[idx] = result;
+      return;
+    }
+    _devices.add(result);
   }
 
   void startScanning() async {
@@ -91,34 +123,8 @@ class _BLEScreenState extends State<BLEScreen> {
     _subscription = stream.listen(
       (result) {
         setState(() {
-          if (Platform.isAndroid) {
-            if (result.device.platformName.startsWith("Buddie")) {
-              bool isPaired = pairedDevices.any(
-                (device) => _isFirstThreeMatch(
-                  device.remoteId.str,
-                  result.device.remoteId.str,
-                ),
-              );
-              if (isPaired) {
-                _devices.add(result);
-              }
-            }
-          } else if (Platform.isIOS) {
-            if (result.device.platformName.startsWith("Buddie")) {
-              if (pairedDevices.isNotEmpty) {
-                bool isPaired = pairedDevices.any(
-                  (device) => _isFirstThreeMatch(
-                    device.remoteId.str,
-                    result.device.remoteId.str,
-                  ),
-                );
-                if (isPaired) {
-                  _devices.add(result);
-                }
-              } else {
-                _devices.add(result);
-              }
-            }
+          if (_isBondedScanResult(result)) {
+            _upsertScannedDevice(result);
           }
           if (_devices.isNotEmpty) {
             _selectedDevice = _devices[0];
@@ -158,6 +164,25 @@ class _BLEScreenState extends State<BLEScreen> {
     return success;
   }
 
+  Future<bool> startConnectingByRemoteId(
+    String remoteId,
+    String deviceName,
+  ) async {
+    await FlutterBluePlus.stopScan();
+    await _subscription?.cancel();
+
+    final success = await connectToRemoteId(remoteId, deviceName: deviceName);
+
+    setState(() {
+      _statusMessage = success
+          ? 'Connected to $deviceName!'
+          : 'Failed to connect to $deviceName';
+      _isScanning = false;
+    });
+
+    return success;
+  }
+
   Widget _buildPairedView() {
     if (_remoteId == null) {
       return Stack(
@@ -167,7 +192,31 @@ class _BLEScreenState extends State<BLEScreen> {
               deviceName: getDeviceName(_devices[0]),
               text: S.of(context).pageBleIsYour,
               onConfirm: () async {
-                final success = await startConnecting(_selectedDevice!);
+                final target = _selectedDevice ?? _devices[0];
+                final success = await startConnecting(target);
+                Navigator.pop(context);
+                if (success) {
+                  context.showToast(S.of(context).pageBleToastConnectSuccess);
+                } else {
+                  context.showToast(S.of(context).pageBleToastConnectFailed);
+                }
+              },
+              onCancel: () => Navigator.pop(context),
+            ),
+          if (!_isScanning && _devices.isEmpty && pairedDevices.isNotEmpty)
+            DeviceCard(
+              deviceName: pairedDevices[0].platformName.isNotEmpty
+                  ? pairedDevices[0].platformName
+                  : pairedDevices[0].remoteId.str,
+              text: S.of(context).pageBleIsYour,
+              onConfirm: () async {
+                final fallbackName = pairedDevices[0].platformName.isNotEmpty
+                    ? pairedDevices[0].platformName
+                    : pairedDevices[0].remoteId.str;
+                final success = await startConnectingByRemoteId(
+                  pairedDevices[0].remoteId.str,
+                  fallbackName,
+                );
                 Navigator.pop(context);
                 if (success) {
                   context.showToast(S.of(context).pageBleToastConnectSuccess);
@@ -243,6 +292,13 @@ Stream<ScanResult> scanDevices({
 }
 
 Future<bool> connectToDevice(ScanResult selectedResult) async {
+  return connectToRemoteId(
+    selectedResult.device.remoteId.toString(),
+    deviceName: getDeviceName(selectedResult),
+  );
+}
+
+Future<bool> connectToRemoteId(String remoteId, {String? deviceName}) async {
   try {
     await FlutterBluePlus.adapterState
         .where((val) => val == BluetoothAdapterState.on)
@@ -250,11 +306,11 @@ Future<bool> connectToDevice(ScanResult selectedResult) async {
 
     await FlutterForegroundTask.saveData(
       key: 'deviceRemoteId',
-      value: selectedResult.device.remoteId.toString(),
+      value: remoteId,
     );
     await FlutterForegroundTask.saveData(
       key: 'deviceName',
-      value: getDeviceName(selectedResult).toString(),
+      value: deviceName ?? remoteId,
     );
     FlutterForegroundTask.sendDataToTask('device');
     return true;
