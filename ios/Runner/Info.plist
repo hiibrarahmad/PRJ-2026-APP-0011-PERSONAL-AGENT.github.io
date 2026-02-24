@@ -11,7 +11,7 @@
 	<key>CFBundleDevelopmentRegion</key>
 	<string>$(DEVELOPMENT_LANGUAGE)</string>
 	<key>CFBundleDisplayName</key>
-	<string>Buddie</string>
+	<string>I.A PERSONAL AGENT</string>
 	<key>CFBundleExecutable</key>
 	<string>$(EXECUTABLE_NAME)</string>
 	<key>CFBundleIdentifier</key>
@@ -19,7 +19,7 @@
 	<key>CFBundleInfoDictionaryVersion</key>
 	<string>6.0</string>
 	<key>CFBundleName</key>
-	<string>Buddie</string>
+	<string>I.A PERSONAL AGENT</string>
 	<key>CFBundlePackageType</key>
 	<string>APPL</string>
 	<key>CFBundleShortVersionString</key>
@@ -46,11 +46,11 @@
 	<key>NSAppleIDUsageDescription</key>
 	<string>inc.buddie.app</string>
 	<key>NSBluetoothAlwaysUsageDescription</key>
-	<string>Buddie requires Bluetooth to connect with devices.</string>
+	<string>I.A PERSONAL AGENT requires Bluetooth to connect with devices.</string>
 	<key>NSBluetoothPeripheralUsageDescription</key>
-	<string>Buddie requires Bluetooth to connect to nearby devices.</string>
+	<string>I.A PERSONAL AGENT requires Bluetooth to connect to nearby devices.</string>
 	<key>NSMicrophoneUsageDescription</key>
-	<string>Buddie uses the microphone to record your speech and convert it to text.</string>
+	<string>I.A PERSONAL AGENT uses the microphone to record your speech and convert it to text.</string>
 	<key>UIApplicationSupportsIndirectInputEvents</key>
 	<true/>
 	<key>UIBackgroundModes</key>
@@ -82,8 +82,8 @@
 	<key>AdaptyPublicSdkKey</key>
 	<string>public_live_QlehGm9O.qQswWVeNdcwMIrXw0wGd</string>
 	<key>NSLocationWhenInUseUsageDescription</key>
-    <string>We need your location to pair with nearby Buddie earbuds.</string>
+    <string>We need your location to pair with nearby earbuds.</string>
     <key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
-    <string>We need your location to pair with nearby Buddie earbuds even when the app is in the background.</string>
+    <string>We need your location to pair with nearby earbuds even when the app is in the background.</string>
 </dict>
 </plist>

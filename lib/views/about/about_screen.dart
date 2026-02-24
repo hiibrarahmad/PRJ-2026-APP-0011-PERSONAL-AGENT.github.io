@@ -34,21 +34,38 @@ class _AboutScreenState extends State<AboutScreen> {
     });
   }
 
+  void _openUrl(String url) {
+    launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication);
+  }
+
+  void _openEmail(String email) {
+    launchUrl(
+      Uri(scheme: 'mailto', path: email),
+      mode: LaunchMode.externalApplication,
+    );
+  }
+
   late final _shareInfoList = <_InfoData>[
-    _InfoData(
-      AssetsUtil.icon_official_website,
-      S.current.pageAboutOfficialWebsite,
-      () {
-        launchUrl(Uri.parse('https://bud.inc'));
-      },
-    ),
-    _InfoData(AssetsUtil.icon_facebook, S.current.pageAboutFacebook, () {
-      launchUrl(
-        Uri.parse('https://www.facebook.com/profile.php?id=61569937881961'),
-      );
+    _InfoData(AssetsUtil.icon_official_website, 'Portfolio', () {
+      _openUrl('https://hiibrarahmad.github.io/');
     }),
-    _InfoData(AssetsUtil.icon_twitter, S.current.pageAboutX, () {
-      launchUrl(Uri.parse('https://x.com/buddie_ai'));
+    _InfoData(AssetsUtil.icon_facebook, 'LinkedIn', () {
+      _openUrl('https://linkedin.com/in/hiibrarahmad');
+    }),
+    _InfoData(AssetsUtil.icon_login_email, 'Email', () {
+      _openEmail('hiibrarahmad@gmail.com');
+    }),
+    _InfoData(AssetsUtil.icon_about, 'GitHub', () {
+      _openUrl('https://github.com/hiibrarahmad');
+    }),
+    _InfoData(AssetsUtil.icon_twitter, 'X', () {
+      _openUrl('https://twitter.com/hiibrarahmad');
+    }),
+    _InfoData(AssetsUtil.icon_instagram, 'Instagram', () {
+      _openUrl('https://instagram.com/hiibrarahmad');
+    }),
+    _InfoData(AssetsUtil.icon_youtube, 'YouTube', () {
+      _openUrl('https://youtube.com/@hiibrarahmad');
     }),
   ];
 
@@ -90,7 +107,7 @@ class _AboutScreenState extends State<AboutScreen> {
                 ),
                 SizedBox(height: 18.h),
                 Text(
-                  S.of(context).pageAboutOfficialMedias,
+                  'Connect with Ibrar Ahmad',
                   style: TextStyle(fontSize: 14.sp),
                 ),
                 Expanded(
@@ -117,29 +134,21 @@ class _AboutScreenState extends State<AboutScreen> {
                     children: [
                       GestureDetector(
                         onTap: () {
-                          launchUrl(
-                            Uri.parse(
-                              'https://bud.inc/policies/terms-of-service',
-                            ),
-                          );
+                          _openUrl('https://github.com/hiibrarahmad');
                         },
                         child: Padding(
                           padding: const EdgeInsets.symmetric(vertical: 10),
-                          child: Text(S.of(context).pageAboutUserAgreement),
+                          child: const Text('GitHub'),
                         ),
                       ),
                       const Text('  |  '),
                       GestureDetector(
                         onTap: () {
-                          launchUrl(
-                            Uri.parse(
-                              'https://bud.inc/policies/privacy-policy',
-                            ),
-                          );
+                          _openUrl('https://linkedin.com/in/hiibrarahmad');
                         },
                         child: Padding(
                           padding: const EdgeInsets.symmetric(vertical: 10),
-                          child: Text(S.of(context).pageAboutPrivacyPolicy),
+                          child: const Text('LinkedIn'),
                         ),
                       ),
                     ],

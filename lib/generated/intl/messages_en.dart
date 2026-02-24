@@ -36,7 +36,7 @@ class MessageLookup extends MessageLookupByLibrary {
   final messages = _notInlinedMessages(_notInlinedMessages);
   static Map<String, Function> _notInlinedMessages(_) => <String, Function>{
     "ScanningBuddie": MessageLookupByLibrary.simpleMessage(
-      "Scanning Buddie...",
+      "Scanning earbuds...",
     ),
     "aiDialogModel": MessageLookupByLibrary.simpleMessage("AI dialogue model"),
     "aiDialogModelCustomLLMDescription": MessageLookupByLibrary.simpleMessage(
@@ -111,7 +111,7 @@ class MessageLookup extends MessageLookupByLibrary {
     "aliyunAPIKeyManageTitle": MessageLookupByLibrary.simpleMessage(
       "Aliyun API Key Management",
     ),
-    "appName": MessageLookupByLibrary.simpleMessage("Buddie"),
+    "appName": MessageLookupByLibrary.simpleMessage("I.A PERSONAL AGENT"),
     "asrModeCloudOnlineDescription": MessageLookupByLibrary.simpleMessage(
       "Short audio recognition",
     ),
@@ -143,7 +143,7 @@ class MessageLookup extends MessageLookupByLibrary {
     "buttonConfigure": MessageLookupByLibrary.simpleMessage("Configure"),
     "buttonConfirm": MessageLookupByLibrary.simpleMessage("Confirm"),
     "buttonDelete": MessageLookupByLibrary.simpleMessage("Delete"),
-    "buttonHelpMe": MessageLookupByLibrary.simpleMessage("Help me Buddie"),
+    "buttonHelpMe": MessageLookupByLibrary.simpleMessage("Help me Agent"),
     "buttonModify": MessageLookupByLibrary.simpleMessage("Modify"),
     "buttonNextStep": MessageLookupByLibrary.simpleMessage("Next step"),
     "buttonSave": MessageLookupByLibrary.simpleMessage("Save"),
@@ -208,7 +208,7 @@ class MessageLookup extends MessageLookupByLibrary {
     "languageEnglish": MessageLookupByLibrary.simpleMessage("English"),
     "meetingListTile": MessageLookupByLibrary.simpleMessage("Meeting"),
     "notPairedNoticeText1": MessageLookupByLibrary.simpleMessage(
-      "Buddie Earbuds Not Connected",
+      "Earbuds Not Connected",
     ),
     "notPairedNoticeText2": MessageLookupByLibrary.simpleMessage(
       "Please go to your phone\'s Bluetooth settings\n\nConnect them before continuing",
@@ -223,7 +223,7 @@ class MessageLookup extends MessageLookupByLibrary {
     "pageAboutPrivacyPolicy": MessageLookupByLibrary.simpleMessage(
       "Privacy Policy",
     ),
-    "pageAboutTitle": MessageLookupByLibrary.simpleMessage("About Buddie"),
+    "pageAboutTitle": MessageLookupByLibrary.simpleMessage("About I.A PERSONAL AGENT"),
     "pageAboutUserAgreement": MessageLookupByLibrary.simpleMessage(
       "User Agreement",
     ),
@@ -231,7 +231,7 @@ class MessageLookup extends MessageLookupByLibrary {
     "pageAboutX": MessageLookupByLibrary.simpleMessage("X"),
     "pageBleConfirmText": MessageLookupByLibrary.simpleMessage("Forget Device"),
     "pageBleIsYour": MessageLookupByLibrary.simpleMessage(
-      "Is this your Buddie?",
+      "Is this your device?",
     ),
     "pageBleSaved": MessageLookupByLibrary.simpleMessage(
       "Your earbuds have already been saved!",
@@ -271,7 +271,7 @@ class MessageLookup extends MessageLookupByLibrary {
       "Unknown model",
     ),
     "pageSettingAboutSubtitle": MessageLookupByLibrary.simpleMessage(
-      "Learn more about Buddie",
+      "Learn more about I.A PERSONAL AGENT",
     ),
     "pageSettingAboutTitle": MessageLookupByLibrary.simpleMessage("About"),
     "pageSettingDarkMode": MessageLookupByLibrary.simpleMessage("Dark Mode"),
@@ -296,7 +296,7 @@ class MessageLookup extends MessageLookupByLibrary {
     "pageWelcomeText1": MessageLookupByLibrary.simpleMessage(
       "Thank you \nfor choosing ",
     ),
-    "pageWelcomeText2": MessageLookupByLibrary.simpleMessage("Buddie!"),
+    "pageWelcomeText2": MessageLookupByLibrary.simpleMessage("I.A PERSONAL AGENT!"),
     "pageWelcomeText3": MessageLookupByLibrary.simpleMessage(
       "Discover recording, \nchatting, and journaling \nfeatures.",
     ),

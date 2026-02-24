@@ -84,7 +84,7 @@ class MyApp extends StatelessWidget {
       minTextAdapt: true,
       splitScreenMode: true,
       child: MaterialApp.router(
-        title: 'Buddie',
+        title: 'I.A PERSONAL AGENT',
         localizationsDelegates: const [
           S.delegate,
           GlobalMaterialLocalizations.delegate,

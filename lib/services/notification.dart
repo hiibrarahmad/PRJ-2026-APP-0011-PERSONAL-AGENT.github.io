@@ -23,7 +23,7 @@ Future<void> showNotificationOfSummaryStarted() async {
 
   await flutterLocalNotificationsPlugin.show(
     summaryNotificationId,
-    'Buddie',
+    'I.A PERSONAL AGENT',
     'Generating your meeting summary...',
     platformChannelSpecifics,
   );
@@ -38,7 +38,7 @@ Future<void> showNotificationOfSummaryFinished() async {
 
   await flutterLocalNotificationsPlugin.show(
     summaryNotificationId,
-    'Buddie',
+    'I.A PERSONAL AGENT',
     'Your meeting summary has been finished.',
     platformChannelSpecifics,
   );
@@ -53,7 +53,7 @@ Future<void> showNotificationOfSummaryFailed() async {
 
   await flutterLocalNotificationsPlugin.show(
     summaryNotificationId,
-    'Buddie',
+    'I.A PERSONAL AGENT',
     "There's an error during generating your meeting summary.",
     platformChannelSpecifics,
   );

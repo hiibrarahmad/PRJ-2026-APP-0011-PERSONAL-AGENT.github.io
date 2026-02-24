@@ -97,7 +97,7 @@ class RecordScreenController {
     FlutterForegroundTask.init(
       androidNotificationOptions: AndroidNotificationOptions(
         channelId: 'buddie_service',
-        channelName: 'Buddie Service',
+        channelName: 'I.A PERSONAL AGENT Service',
         channelImportance: NotificationChannelImportance.HIGH,
         priority: NotificationPriority.HIGH,
       ),
@@ -120,7 +120,7 @@ class RecordScreenController {
     await _requestBlePermissions();
     final ServiceRequestResult result = await FlutterForegroundTask.startService(
       serviceId: 300,
-      notificationTitle: 'Buddie Service',
+      notificationTitle: 'I.A PERSONAL AGENT Service',
       notificationText: 'Tap to return to the app',
       callback: startRecordService,
     );

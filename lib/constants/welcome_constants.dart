@@ -4,7 +4,7 @@ class welcome_constants {
   static List<Map<String, dynamic>> welcomeSentences = [
     {
       'id': const Uuid().v4(),
-      'text': "Hello, I am Buddie.",
+      'text': "Hello, I am I.A PERSONAL AGENT.",
       'isUser': 'assistant',
     },
     {
@@ -16,13 +16,13 @@ class welcome_constants {
     {
       'id': const Uuid().v4(),
       'text':
-          "Say 'Hello Buddie' to have a conversation with me. Say 'Just Listen' if you want me to be quiet but transcribe your comments and conversations to refer to later.",
+          "Say 'Hello Agent' to have a conversation with me. Say 'Just Listen' if you want me to be quiet but transcribe your comments and conversations to refer to later.",
       'isUser': 'assistant',
     },
     {
       'id': const Uuid().v4(),
       'text':
-          "During online meetings, Buddie will automatically transcribe everything for you. You can click the 'Help me Buddie' button for assistance during the meetings!",
+          "During online meetings, I.A PERSONAL AGENT will automatically transcribe everything for you. You can click the 'Help me Agent' button for assistance during the meetings!",
       'isUser': 'assistant',
     },
     {

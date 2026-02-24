@@ -34,7 +34,7 @@ class MessageLookup extends MessageLookupByLibrary {
 
   final messages = _notInlinedMessages(_notInlinedMessages);
   static Map<String, Function> _notInlinedMessages(_) => <String, Function>{
-    "ScanningBuddie": MessageLookupByLibrary.simpleMessage("扫描 Buddie 中..."),
+    "ScanningBuddie": MessageLookupByLibrary.simpleMessage("扫描耳机中..."),
     "aiDialogModel": MessageLookupByLibrary.simpleMessage("AI对话模型"),
     "aiDialogModelCustomLLMDescription": MessageLookupByLibrary.simpleMessage(
       "使用您配置的API Key",
@@ -101,7 +101,7 @@ class MessageLookup extends MessageLookupByLibrary {
     "aliyunAPIKeyManageTitle": MessageLookupByLibrary.simpleMessage(
       "阿里云API Key管理",
     ),
-    "appName": MessageLookupByLibrary.simpleMessage("Buddie"),
+    "appName": MessageLookupByLibrary.simpleMessage("I.A PERSONAL AGENT"),
     "asrModeCloudOnlineDescription": MessageLookupByLibrary.simpleMessage(
       "短音频识别",
     ),
@@ -127,7 +127,7 @@ class MessageLookup extends MessageLookupByLibrary {
     "buttonConfigure": MessageLookupByLibrary.simpleMessage("配置"),
     "buttonConfirm": MessageLookupByLibrary.simpleMessage("确认"),
     "buttonDelete": MessageLookupByLibrary.simpleMessage("删除"),
-    "buttonHelpMe": MessageLookupByLibrary.simpleMessage("帮帮我 Buddie"),
+    "buttonHelpMe": MessageLookupByLibrary.simpleMessage("帮帮我 Agent"),
     "buttonModify": MessageLookupByLibrary.simpleMessage("修改"),
     "buttonNextStep": MessageLookupByLibrary.simpleMessage("下一步"),
     "buttonSave": MessageLookupByLibrary.simpleMessage("保存"),
@@ -178,7 +178,7 @@ class MessageLookup extends MessageLookupByLibrary {
     "languageEnglish": MessageLookupByLibrary.simpleMessage("英语"),
     "meetingListTile": MessageLookupByLibrary.simpleMessage("会议"),
     "notPairedNoticeText1": MessageLookupByLibrary.simpleMessage(
-      "Buddie 耳机未连接",
+      "耳机未连接",
     ),
     "notPairedNoticeText2": MessageLookupByLibrary.simpleMessage(
       "请打开手机的蓝牙设置\n\n连接耳机以继续",
@@ -187,12 +187,12 @@ class MessageLookup extends MessageLookupByLibrary {
     "pageAboutOfficialMedias": MessageLookupByLibrary.simpleMessage("官方媒体"),
     "pageAboutOfficialWebsite": MessageLookupByLibrary.simpleMessage("官网"),
     "pageAboutPrivacyPolicy": MessageLookupByLibrary.simpleMessage("隐私政策"),
-    "pageAboutTitle": MessageLookupByLibrary.simpleMessage("关于 Buddie"),
+    "pageAboutTitle": MessageLookupByLibrary.simpleMessage("关于 I.A PERSONAL AGENT"),
     "pageAboutUserAgreement": MessageLookupByLibrary.simpleMessage("用户协议"),
     "pageAboutVersion": m3,
     "pageAboutX": MessageLookupByLibrary.simpleMessage("X"),
     "pageBleConfirmText": MessageLookupByLibrary.simpleMessage("忘记"),
-    "pageBleIsYour": MessageLookupByLibrary.simpleMessage("这是你的 Buddie?"),
+    "pageBleIsYour": MessageLookupByLibrary.simpleMessage("这是你的设备吗?"),
     "pageBleSaved": MessageLookupByLibrary.simpleMessage("您的耳机已经被保存!"),
     "pageBleToastConnectFailed": MessageLookupByLibrary.simpleMessage(
       "连接失败. 请重试.",
@@ -215,7 +215,7 @@ class MessageLookup extends MessageLookupByLibrary {
       "未知模型",
     ),
     "pageSettingAboutSubtitle": MessageLookupByLibrary.simpleMessage(
-      "学习更多关于 Buddie",
+      "了解更多 I.A PERSONAL AGENT",
     ),
     "pageSettingAboutTitle": MessageLookupByLibrary.simpleMessage("关于"),
     "pageSettingDarkMode": MessageLookupByLibrary.simpleMessage("暗黑模式"),
@@ -234,7 +234,7 @@ class MessageLookup extends MessageLookupByLibrary {
     "pageWelcomeText1": MessageLookupByLibrary.simpleMessage(
       "Thank you \nfor choosing ",
     ),
-    "pageWelcomeText2": MessageLookupByLibrary.simpleMessage("Buddie!"),
+    "pageWelcomeText2": MessageLookupByLibrary.simpleMessage("I.A PERSONAL AGENT!"),
     "pageWelcomeText3": MessageLookupByLibrary.simpleMessage(
       "Discover recording, \nchatting, and journaling \nfeatures.",
     ),

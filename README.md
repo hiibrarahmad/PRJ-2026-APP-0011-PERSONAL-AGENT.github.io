@@ -1,10 +1,10 @@
 <div align="center">
 
-<img src="./assets/images/logo-hd.png" width="100%" alt="Buddie App"/>
+<img src="./assets/images/logo-hd.png" width="100%" alt="I.A PERSONAL AGENT"/>
 
 ---
 
-# Buddie App - Android Runbook (Windows)
+# I.A PERSONAL AGENT - Android Runbook (Windows)
 
 ### Exact Setup + All Hurdles We Passed
 
@@ -265,6 +265,6 @@ Core app docs still apply:
 
 <div align="center">
 
-**Buddie App Android setup is now reproducible on Windows when following this runbook exactly.**
+**I.A PERSONAL AGENT Android setup is now reproducible on Windows when following this runbook exactly.**
 
 </div>

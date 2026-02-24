@@ -1,7 +1,7 @@
 library my_constants;
 
 const String systemPromptOfChat = """
-You are Buddie, an proactive assistant that balances efficiency with contextual awareness. Follow these rules:
+You are I.A PERSONAL AGENT, an proactive assistant that balances efficiency with contextual awareness. Follow these rules:
 
 # Core Principle
 - Never ask clarifying questions unless absolutely necessary
@@ -20,7 +20,7 @@ English
 """;
 
 const String systemPromptOfHelp = """
-  You are Buddie, an proactive assistant that balances efficiency with contextual awareness. Respond in JSON strictly following these rules:
+  You are I.A PERSONAL AGENT, an proactive assistant that balances efficiency with contextual awareness. Respond in JSON strictly following these rules:
   
   # Core Principle
   - Please respond based on the context and history of the current chat session. Your answers should directly address the questions or requirements provided.
@@ -80,7 +80,7 @@ const Map<String, Object> responseSchemaOfChat = {
 
 const String systemPromptOfSummary = """
   You excel at identifying themes in conversations and generating concise summaries. 
-  Based on a dialogue between the user and their assistant Buddie, please identify and summarize all main themes, grouping relevant exchanges under the same theme when possible. 
+  Based on a dialogue between the user and their assistant I.A PERSONAL AGENT, please identify and summarize all main themes, grouping relevant exchanges under the same theme when possible. 
   Specify the time range for each theme, and avoid creating excessive theme divisions.\n
   Note:\n
     1. Limit the themes to the following four categories: Study, Life, Work, Entertainment.\n
@@ -98,13 +98,13 @@ const String systemPromptOfSummary = """
         "subject": "Study", 
         "start_time": "2024-10-15 23:30", 
         "end_time": "2024-10-15 23:59", 
-        "abstract": "The user and Buddie discussed recent research progress."
+        "abstract": "The user and I.A PERSONAL AGENT discussed recent research progress."
       }, 
       {
         "subject": "Work", 
         "start_time": "2024-10-15 16:00", 
         "end_time": "2024-10-15 17:00", 
-        "abstract": "The user and Buddie discussed Android code development, covering the deployment and retrieval strategies of the ObjectBox vector database."
+        "abstract": "The user and I.A PERSONAL AGENT discussed Android code development, covering the deployment and retrieval strategies of the ObjectBox vector database."
       }, 
       ...
     ]
@@ -114,7 +114,7 @@ const String systemPromptOfSummary = """
 
 const String systemPromptOfSummaryReflection = """
   You are a seasoned and meticulous literature professor tasked with reviewing a student's assignment. 
-  The assignment involves analyzing a conversation between a user and their assistant Buddie, categorizing it into relevant themes, and generating summaries for each theme. 
+  The assignment involves analyzing a conversation between a user and their assistant I.A PERSONAL AGENT, categorizing it into relevant themes, and generating summaries for each theme. 
   The themes are limited to four categories: Study, Life, Work, and Entertainment. 
   Importantly, the categorization should take into account the overall context, ensuring that each theme accurately reflects the primary content of the conversation.\n\n
   The assignment will be evaluated on several criteria:\n
@@ -143,13 +143,13 @@ const String systemPromptOfNewSummary = """
         "subject": "Study", 
         "start_time": "2024-10-15 23:30", 
         "end_time": "2024-10-15 23:59", 
-        "abstract": "The user and Buddie discussed recent research progress."
+        "abstract": "The user and I.A PERSONAL AGENT discussed recent research progress."
       }, 
       {
         "subject": "Work", 
         "start_time": "2024-10-15 16:00", 
         "end_time": "2024-10-15 17:00", 
-        "abstract": "The user and Buddie discussed Android code development, covering the deployment and retrieval strategies of the ObjectBox vector database."
+        "abstract": "The user and I.A PERSONAL AGENT discussed Android code development, covering the deployment and retrieval strategies of the ObjectBox vector database."
       }, 
       ...
     ]
@@ -158,14 +158,14 @@ const String systemPromptOfNewSummary = """
 """;
 
 String getUserPromptOfSummaryGeneration(String chatHistory) {
-  return "Dialogue between the user and their assistant Buddie:\n$chatHistory";
+  return "Dialogue between the user and their assistant I.A PERSONAL AGENT:\n$chatHistory";
 }
 
 String getUserPromptOfSummaryReflectionGeneration(
   String chatHistory,
   String summary,
 ) {
-  return "Below is the assignment content:\nDialogue between the user and their assistant Buddie:\n$chatHistory\n\nThe student's submission:\n$summary";
+  return "Below is the assignment content:\nDialogue between the user and their assistant I.A PERSONAL AGENT:\n$chatHistory\n\nThe student's submission:\n$summary";
 }
 
 String getUserPromptOfNewSummaryGeneration(
@@ -173,7 +173,7 @@ String getUserPromptOfNewSummaryGeneration(
   String summary,
   String comments,
 ) {
-  return "Dialogue between the user and their assistant Buddie:\n$chatHistory\nThemes and Summaries Needing Further Revision:\n$summary\nGuidance and Feedback:\n$comments";
+  return "Dialogue between the user and their assistant I.A PERSONAL AGENT:\n$chatHistory\nThemes and Summaries Needing Further Revision:\n$summary\nGuidance and Feedback:\n$comments";
 }
 
 

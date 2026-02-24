@@ -54,9 +54,14 @@ class S {
     return Localizations.of<S>(context, S);
   }
 
-  /// `Buddie`
+  /// `I.A PERSONAL AGENT`
   String get appName {
-    return Intl.message('Buddie', name: 'appName', desc: '', args: []);
+    return Intl.message(
+      'I.A PERSONAL AGENT',
+      name: 'appName',
+      desc: '',
+      args: [],
+    );
   }
 
   /// `Next step`
@@ -114,10 +119,10 @@ class S {
     );
   }
 
-  /// `Help me Buddie`
+  /// `Help me Agent`
   String get buttonHelpMe {
     return Intl.message(
-      'Help me Buddie',
+      'Help me Agent',
       name: 'buttonHelpMe',
       desc: '',
       args: [],
@@ -134,10 +139,10 @@ class S {
     );
   }
 
-  /// `Buddie!`
+  /// `I.A PERSONAL AGENT!`
   String get pageWelcomeText2 {
     return Intl.message(
-      'Buddie!',
+      'I.A PERSONAL AGENT!',
       name: 'pageWelcomeText2',
       desc: '',
       args: [],
@@ -174,20 +179,20 @@ class S {
     );
   }
 
-  /// `Scanning Buddie...`
+  /// `Scanning earbuds...`
   String get ScanningBuddie {
     return Intl.message(
-      'Scanning Buddie...',
+      'Scanning earbuds...',
       name: 'ScanningBuddie',
       desc: '',
       args: [],
     );
   }
 
-  /// `Buddie Earbuds Not Connected`
+  /// `Earbuds Not Connected`
   String get notPairedNoticeText1 {
     return Intl.message(
-      'Buddie Earbuds Not Connected',
+      'Earbuds Not Connected',
       name: 'notPairedNoticeText1',
       desc: '',
       args: [],
@@ -834,10 +839,10 @@ class S {
     );
   }
 
-  /// `Learn more about Buddie`
+  /// `Learn more about I.A PERSONAL AGENT`
   String get pageSettingAboutSubtitle {
     return Intl.message(
-      'Learn more about Buddie',
+      'Learn more about I.A PERSONAL AGENT',
       name: 'pageSettingAboutSubtitle',
       desc: '',
       args: [],
@@ -864,10 +869,10 @@ class S {
     );
   }
 
-  /// `About Buddie`
+  /// `About I.A PERSONAL AGENT`
   String get pageAboutTitle {
     return Intl.message(
-      'About Buddie',
+      'About I.A PERSONAL AGENT',
       name: 'pageAboutTitle',
       desc: '',
       args: [],
@@ -1094,10 +1099,10 @@ class S {
     );
   }
 
-  /// `Is this your Buddie?`
+  /// `Is this your device?`
   String get pageBleIsYour {
     return Intl.message(
-      'Is this your Buddie?',
+      'Is this your device?',
       name: 'pageBleIsYour',
       desc: '',
       args: [],

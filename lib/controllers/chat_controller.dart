@@ -459,15 +459,15 @@ class ChatController extends ChangeNotifier {
 
       insertNewMessage({
         'id': const Uuid().v4(),
-        'text': 'Help me Buddie',
+        'text': 'Help me Agent',
         'isUser': 'user',
       });
       _objectBoxService.insertDialogueRecord(
-        RecordEntity(role: 'user', content: 'Help me Buddie'),
+        RecordEntity(role: 'user', content: 'Help me Agent'),
       );
       firstScrollToBottom();
 
-      unifiedChatManager.addChatSession('user', 'Help me Buddie');
+      unifiedChatManager.addChatSession('user', 'Help me Agent');
       await _getBotResponse(text, isHelp: true);
     }
   }
