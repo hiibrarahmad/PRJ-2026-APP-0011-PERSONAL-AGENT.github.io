@@ -15,7 +15,8 @@ AndroidNotificationDetails taskChannel = AndroidNotificationDetails(
 );
 
 Future<void> showNotificationOfSummaryStarted() async {
-  const DarwinNotificationDetails iosPlatformChannelSpecifics = DarwinNotificationDetails();
+  const DarwinNotificationDetails iosPlatformChannelSpecifics =
+      DarwinNotificationDetails();
   NotificationDetails platformChannelSpecifics = NotificationDetails(
     android: taskChannel,
     iOS: iosPlatformChannelSpecifics,
@@ -23,14 +24,15 @@ Future<void> showNotificationOfSummaryStarted() async {
 
   await flutterLocalNotificationsPlugin.show(
     summaryNotificationId,
-    'I.A PERSONAL AGENT',
+    'I.A agent',
     'Generating your meeting summary...',
     platformChannelSpecifics,
   );
 }
 
 Future<void> showNotificationOfSummaryFinished() async {
-  const DarwinNotificationDetails iosPlatformChannelSpecifics = DarwinNotificationDetails();
+  const DarwinNotificationDetails iosPlatformChannelSpecifics =
+      DarwinNotificationDetails();
   NotificationDetails platformChannelSpecifics = NotificationDetails(
     android: taskChannel,
     iOS: iosPlatformChannelSpecifics,
@@ -38,14 +40,15 @@ Future<void> showNotificationOfSummaryFinished() async {
 
   await flutterLocalNotificationsPlugin.show(
     summaryNotificationId,
-    'I.A PERSONAL AGENT',
+    'I.A agent',
     'Your meeting summary has been finished.',
     platformChannelSpecifics,
   );
 }
 
 Future<void> showNotificationOfSummaryFailed() async {
-  const DarwinNotificationDetails iosPlatformChannelSpecifics = DarwinNotificationDetails();
+  const DarwinNotificationDetails iosPlatformChannelSpecifics =
+      DarwinNotificationDetails();
   NotificationDetails platformChannelSpecifics = NotificationDetails(
     android: taskChannel,
     iOS: iosPlatformChannelSpecifics,
@@ -53,7 +56,7 @@ Future<void> showNotificationOfSummaryFailed() async {
 
   await flutterLocalNotificationsPlugin.show(
     summaryNotificationId,
-    'I.A PERSONAL AGENT',
+    'I.A agent',
     "There's an error during generating your meeting summary.",
     platformChannelSpecifics,
   );

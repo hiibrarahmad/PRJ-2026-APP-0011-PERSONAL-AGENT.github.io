@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 
+import '../../constants/theme_constants.dart';
 import '../../generated/l10n.dart';
 
 class NotPairedNotice extends StatelessWidget {
@@ -13,11 +14,11 @@ class NotPairedNotice extends StatelessWidget {
         margin: EdgeInsets.all(20.sp),
         padding: EdgeInsets.all(20.sp),
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: ThemeConstants.card,
           borderRadius: BorderRadius.circular(16),
           boxShadow: [
             BoxShadow(
-              color: Colors.black26,
+              color: Colors.black.withAlpha(70),
               blurRadius: 10.sp,
               offset: const Offset(0, 4),
             ),
@@ -27,22 +28,22 @@ class NotPairedNotice extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           children: [
             Text(
-              "🎧 ${S.of(context).notPairedNoticeText1}",
+              S.of(context).notPairedNoticeText1,
               textAlign: TextAlign.center,
               style: TextStyle(
                 fontSize: 20.sp,
                 fontWeight: FontWeight.bold,
-                color: Colors.black87,
+                color: ThemeConstants.text,
               ),
             ),
             SizedBox(height: 12.sp),
             Text(
-              "⚙️ ${S.of(context).notPairedNoticeText2} 😉",
+              S.of(context).notPairedNoticeText2,
               textAlign: TextAlign.center,
               style: TextStyle(
                 fontSize: 18.sp,
-                height: 1.4.sp,
-                color: Colors.black87,
+                height: 1.4,
+                color: ThemeConstants.textSecondary,
               ),
             ),
           ],

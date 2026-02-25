@@ -1,0 +1,51 @@
+﻿# I.A agent - Windows build + install commands (PowerShell)
+
+# 0) One-time (User environment variables)
+[Environment]::SetEnvironmentVariable('JAVA_HOME', 'C:\Program Files\Android\Android Studio\jbr', 'User')
+[Environment]::SetEnvironmentVariable('PUB_CACHE', 'D:\pub-cache', 'User')
+
+$userPath = [Environment]::GetEnvironmentVariable('Path', 'User')
+$required = @(
+  'C:\src\flutter\bin',
+  'C:\Program Files\Android\Android Studio\jbr\bin',
+  'C:\Android\Sdk\platform-tools'
+)
+foreach ($p in $required) {
+  if ($userPath -notlike "*$p*") { $userPath = "$userPath;$p" }
+}
+[Environment]::SetEnvironmentVariable('Path', $userPath, 'User')
+
+# Close all terminals and open a NEW PowerShell window after one-time setup.
+
+# 1) Every new shell session (safe)
+$env:JAVA_HOME = 'C:\Program Files\Android\Android Studio\jbr'
+$env:PUB_CACHE = 'D:\pub-cache'
+$env:Path = "C:\src\flutter\bin;C:\Program Files\Android\Android Studio\jbr\bin;C:\Android\Sdk\platform-tools;$env:Path"
+
+# 2) Health check
+java -version
+flutter --version
+& 'C:\Android\Sdk\platform-tools\adb.exe' version
+
+# 3) Clean + build
+Set-Location 'D:\buddie_app_run\android'
+.\gradlew --stop
+
+Set-Location 'D:\buddie_app_run'
+if (Test-Path .gradle) { Remove-Item -Recurse -Force .gradle }
+if (Test-Path build) { Remove-Item -Recurse -Force build }
+if (Test-Path android\.gradle) { Remove-Item -Recurse -Force android\.gradle }
+
+flutter pub get
+flutter build apk --debug
+
+# 4) Install + launch on phone
+& 'C:\Android\Sdk\platform-tools\adb.exe' devices
+& 'C:\Android\Sdk\platform-tools\adb.exe' install -r 'D:\buddie_app_run\build\app\outputs\flutter-apk\app-debug.apk'
+& 'C:\Android\Sdk\platform-tools\adb.exe' shell monkey -p inc.buddie.memx -c android.intent.category.LAUNCHER 1
+
+# 5) If cache lock/build daemon stuck
+& 'C:\Android\Sdk\platform-tools\adb.exe' kill-server
+taskkill /F /IM java.exe /T
+taskkill /F /IM gradle* /T
+

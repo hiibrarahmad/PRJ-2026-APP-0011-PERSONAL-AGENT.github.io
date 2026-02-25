@@ -1,41 +1,7 @@
-/// 蓝牙低功耗(BLE)服务管理
-///
-/// 提供蓝牙设备连接、数据传输和状态管理的核心功能：
-/// 1. 设备管理：
-///   - 自动重连上次配对的设备
-///   - 手动连接指定设备
-///   - 设备遗忘功能
-/// 2. 连接管理：
-///   - 状态监听（连接/断开）
-///   - 防抖处理避免状态抖动
-///   - 平台差异化处理（Android/iOS）
-/// 3. 数据传输：
-///   - 实时数据流接收
-///   - 特征值订阅机制
-/// 4. 性能优化：
-///   - MTU协商（最大传输单元）
-///   - 连接优先级设置
-///   - PHY参数配置（物理层）
-///
-/// 使用示例：
-/// ```dart
-/// // 初始化服务（自动重连）
-/// await BleService().init();
-///
-/// // 手动连接设备
-/// await BleService().getAndConnect(deviceId);
-///
-/// // 监听数据流
-/// BleService().dataStream.listen((data) {
-///   // 处理接收到的数据
-/// });
-/// ```
-///
-/// 注意事项：
-/// - 依赖 flutter_blue_plus 和 flutter_foreground_task 插件
-/// - Android平台支持更多高级功能（PHY、连接优先级）
-/// - 连接状态变化会触发前台任务状态更新
-/// - 使用防抖机制优化状态变化处理
+/// BLE device lifecycle and data channel service.
+/// - Restores previously paired device when available.
+/// - Reports connection state to foreground task UI.
+/// - Uses Buddie BLE data channel when present, falls back to microphone.
 
 import 'dart:async';
 import 'dart:developer' as dev;
@@ -53,14 +19,10 @@ class BleService {
   factory BleService() => _instance;
   BleService._internal();
 
-  // 当前蓝牙连接状态，初始为断开
   BluetoothConnectionState _connectionState =
       BluetoothConnectionState.disconnected;
-  // 当前设备对象
   BluetoothDevice? _device;
-  // 监听连接状态的订阅
   StreamSubscription<BluetoothConnectionState>? _connectionStateSubscription;
-  // 设备名称
   String? deviceName;
   bool _hasBuddieDataChannel = false;
 
@@ -75,7 +37,6 @@ class BleService {
   Stream<BluetoothConnectionState> get connectionStateStream =>
       _device?.connectionState ?? Stream<BluetoothConnectionState>.empty();
 
-  // 用于连接状态变化的防抖定时器
   Timer? _debounceTimer;
 
   String _resolveDeviceName() {
@@ -141,27 +102,25 @@ class BleService {
     }
   }
 
-  /// 初始化服务
-  ///
-  /// 从前台任务获取保存的 deviceRemoteId，若存在则自动重连。
   Future<void> init() async {
     var remoteId = await FlutterForegroundTask.getData(key: 'deviceRemoteId');
     if (remoteId != null) {
-      _device = BluetoothDevice.fromId(remoteId);
-      await FlutterBluePlus.adapterState
-          .where((val) => val == BluetoothAdapterState.on)
-          .first;
-      await _device!.connect(autoConnect: true, mtu: null);
-      listenToConnectionState();
+      try {
+        _device = BluetoothDevice.fromId(remoteId);
+        await FlutterBluePlus.adapterState
+            .where((val) => val == BluetoothAdapterState.on)
+            .first;
+        await _device!.connect(autoConnect: true, mtu: null);
+        listenToConnectionState();
+      } catch (e) {
+        dev.log('BLE init reconnect failed: $e');
+      }
     }
-    // Android 平台才支持 PHY 查询
     if (Platform.isAndroid) {
-      PhySupport phySupport = await FlutterBluePlus.getPhySupport();
-      // 可以根据 phySupport 做后续处理
+      await FlutterBluePlus.getPhySupport();
     }
   }
 
-  /// 主动获取 deviceRemoteId 并连接
   Future<void> getAndConnect(dynamic remoteId) async {
     await FlutterBluePlus.adapterState
         .where((val) => val == BluetoothAdapterState.on)
@@ -177,7 +136,6 @@ class BleService {
     }
   }
 
-  /// 监听蓝牙连接状态变化
   void listenToConnectionState() {
     _connectionStateSubscription?.cancel();
     _connectionStateSubscription = _device?.connectionState.listen((
@@ -185,14 +143,13 @@ class BleService {
     ) async {
       _connectionState = state;
 
-      // 防抖：防止短时间内大量回调
       _debounceTimer?.cancel();
       _debounceTimer = Timer(Duration(milliseconds: 500), () async {
         if (state == BluetoothConnectionState.connected) {
-          // 连接成功后延迟处理，保证稳定
           await Future.delayed(Duration(milliseconds: 3000));
           await _configureConnectionLink();
           _hasBuddieDataChannel = await _tryEnableBuddieDataChannel();
+          deviceName = _resolveDeviceName();
 
           if (_hasBuddieDataChannel) {
             // Preserve original behavior when Buddie BLE audio channel exists.
@@ -208,7 +165,7 @@ class BleService {
 
           FlutterForegroundTask.sendDataToMain({
             'connectionState': true,
-            'deviceName': _resolveDeviceName(),
+            'deviceName': deviceName,
             'deviceId': _device?.remoteId.toString(),
             'bleDataChannelReady': _hasBuddieDataChannel,
           });
@@ -216,10 +173,11 @@ class BleService {
           _hasBuddieDataChannel = false;
           _dataSubscription?.cancel();
           _dataSubscription = null;
+          deviceName = _resolveDeviceName();
           FlutterForegroundTask.sendDataToTask(Constants.actionStartMicrophone);
           FlutterForegroundTask.sendDataToMain({
             'connectionState': false,
-            'deviceName': _resolveDeviceName(),
+            'deviceName': deviceName,
             'deviceId': _device?.remoteId.toString(),
             'bleDataChannelReady': false,
           });
@@ -231,17 +189,24 @@ class BleService {
     });
   }
 
-  /// 忘记设备：断开并清除保存的设备信息
   void forgetDevice() {
     _device?.disconnect();
     _dataSubscription?.cancel();
     _dataSubscription = null;
     _hasBuddieDataChannel = false;
+    deviceName = null;
+    _connectionState = BluetoothConnectionState.disconnected;
     FlutterForegroundTask.removeData(key: 'deviceRemoteId');
     FlutterForegroundTask.removeData(key: 'deviceName');
+    FlutterForegroundTask.sendDataToMain({
+      'action': 'deviceReset',
+      'connectionState': false,
+      'deviceName': null,
+      'deviceId': null,
+      'bleDataChannelReady': false,
+    });
   }
 
-  /// 释放资源，取消订阅并关闭数据流
   void dispose() {
     _connectionStateSubscription?.cancel();
     _dataSubscription?.cancel();

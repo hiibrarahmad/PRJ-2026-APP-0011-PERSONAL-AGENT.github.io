@@ -1,42 +1,4 @@
-/// 聊天界面核心控制器
-///
-/// 负责管理聊天界面的完整生命周期和交互逻辑：
-/// 1. 消息管理：
-///   - 历史消息加载（分页机制）
-///   - 实时消息处理（流式响应）
-///   - 消息状态跟踪（已读/未读）
-/// 2. 语音交互：
-///   - 语音活动检测（VAD）
-///   - ASR流式消息处理（实时语音转文字）
-/// 3. LLM集成：
-///   - 统一LLM管理器接入
-///   - 动态LLM切换
-/// 4. 状态管理：
-///   - 滚动位置智能维护
-///   - 跨实例状态同步
-///
-/// 核心工作流程：
-/// 1. 初始化：加载历史消息、配置LLM、准备音频系统
-/// 2. 消息处理：
-///   - 用户输入 → 发送到LLM → 处理响应 → 更新UI
-///   - ASR流 → 实时显示 → 最终确认 → 保存记录
-///
-/// 使用示例：
-/// ```dart
-/// // 创建控制器
-/// final controller = ChatController(
-///   onNewMessage: () => _scrollToBottom(),
-/// );
-///
-/// // 发送文本消息
-/// controller.sendMessage(text: '你好');
-///
-/// // 处理音频响应
-/// FlutterForegroundTask.sendDataToTask({
-///   'action': 'playAudio',
-///   'data': audioBytes,
-/// });
-/// ```
+/// Chat state controller for text/audio messages and streaming assistant replies.
 
 import 'dart:async';
 import 'dart:developer' as dev;
@@ -49,6 +11,7 @@ import 'package:flutter_foreground_task/flutter_foreground_task.dart';
 import 'package:flutter_sound/public/flutter_sound_player.dart' as player;
 import 'package:flutter_sound_platform_interface/flutter_sound_platform_interface.dart'
     as code;
+import 'package:flutter_tts/flutter_tts.dart';
 import 'package:uuid/uuid.dart';
 
 import '../models/record_entity.dart';
@@ -58,7 +21,6 @@ import '../services/base_llm.dart';
 import '../services/objectbox_service.dart';
 
 class ChatController extends ChangeNotifier {
-  // 使用统一LLM架构替代传统ChatManager
   late final UnifiedChatManager unifiedChatManager;
   late final UnifiedChatManager unifiedChatHelp;
   final String helpMessage =
@@ -78,7 +40,6 @@ class ChatController extends ChangeNotifier {
   bool hasMoreMessages = true;
   bool bleConnection = false;
 
-  // 添加ASR流消息处理的字段
   Map<String, String> asrStreamingMessages = {}; // messageId -> current text
   Map<String, int> asrMessageIndices =
       {}; // messageId -> message index in newMessages
@@ -86,6 +47,8 @@ class ChatController extends ChangeNotifier {
   static final Set<ChatController> _instances = <ChatController>{};
 
   final player.FlutterSoundPlayer _audioPlayer = player.FlutterSoundPlayer();
+  final FlutterTts _uiTts = FlutterTts();
+  bool _uiTtsReady = false;
 
   ChatController({required this.onNewMessage}) {
     _instances.add(this);
@@ -98,10 +61,10 @@ class ChatController extends ChangeNotifier {
     super.dispose();
     textController.dispose();
     scrollController.dispose();
-    // 清理ASR流状态
     asrStreamingMessages.clear();
     asrMessageIndices.clear();
     _audioPlayer.closePlayer();
+    _uiTts.stop();
     FlutterForegroundTask.removeTaskDataCallback(_onReceiveTaskData);
   }
 
@@ -156,7 +119,6 @@ class ChatController extends ChangeNotifier {
   }
 
   Future<void> _initialize() async {
-    // 初始化统一ChatManager
     unifiedChatManager = UnifiedChatManager();
     unifiedChatHelp = UnifiedChatManager();
     await unifiedChatManager.init(
@@ -165,13 +127,130 @@ class ChatController extends ChangeNotifier {
     await unifiedChatHelp.init(systemPrompt: systemPromptOfHelp);
 
     await loadMoreMessages(reset: true);
-    // 初始化音频播放器
     if (Platform.isAndroid) {
       await _audioPlayer.openPlayer(isBGService: true);
     } else {
       await _audioPlayer.openPlayer();
     }
+    await _initUiTts();
     FlutterForegroundTask.addTaskDataCallback(_onReceiveTaskData);
+  }
+
+  Future<void> _initUiTts() async {
+    if (_uiTtsReady) return;
+    try {
+      await _uiTts.awaitSpeakCompletion(false);
+      if (Platform.isAndroid) {
+        try {
+          final engines = await _uiTts.getEngines;
+          final preferred = engines
+              .map((e) => e.toString())
+              .firstWhere(
+                (e) => e.toLowerCase().contains('google'),
+                orElse: () => '',
+              );
+          if (preferred.isNotEmpty) {
+            await _uiTts.setEngine(preferred);
+          }
+        } catch (e) {
+          dev.log('UI TTS engine select failed: $e');
+        }
+
+        await _uiTts.setQueueMode(1);
+      }
+
+      final langs = await _uiTts.getLanguages;
+      String? selectedLanguage;
+      for (final item in langs) {
+        final lang = item.toString();
+        final normalized = lang.toLowerCase();
+        if (normalized == 'en-us' || normalized.startsWith('en-us-')) {
+          selectedLanguage = lang;
+          break;
+        }
+        if (selectedLanguage == null && normalized.startsWith('en')) {
+          selectedLanguage = lang;
+        }
+      }
+      if (selectedLanguage != null) {
+        await _uiTts.setLanguage(selectedLanguage);
+      }
+
+      final voices = await _uiTts.getVoices;
+      final bestVoice = _pickBestEnglishVoice(voices);
+      if (bestVoice != null) {
+        await _uiTts.setVoice(bestVoice);
+      }
+
+      // Slightly faster and brighter for a more conversational tone.
+      await _uiTts.setSpeechRate(0.53);
+      await _uiTts.setPitch(1.03);
+      await _uiTts.setVolume(1.0);
+      _uiTtsReady = true;
+    } catch (e) {
+      dev.log('UI TTS init failed: $e');
+    }
+  }
+
+  Map<String, String>? _pickBestEnglishVoice(dynamic voicesRaw) {
+    if (voicesRaw is! List) return null;
+
+    final candidates = <Map<String, String>>[];
+    for (final raw in voicesRaw) {
+      if (raw is! Map) continue;
+      final name = (raw['name'] ?? '').toString();
+      final locale = (raw['locale'] ?? '').toString();
+      if (name.isEmpty || locale.isEmpty) continue;
+
+      if (!locale.toLowerCase().startsWith('en')) continue;
+      candidates.add({'name': name, 'locale': locale});
+    }
+
+    if (candidates.isEmpty) return null;
+
+    int score(Map<String, String> voice) {
+      final name = (voice['name'] ?? '').toLowerCase();
+      final locale = (voice['locale'] ?? '').toLowerCase();
+      var s = 0;
+      if (locale.startsWith('en-us')) s += 5;
+      if (name.contains('neural') ||
+          name.contains('wavenet') ||
+          name.contains('natural') ||
+          name.contains('studio') ||
+          name.contains('enhanced') ||
+          name.contains('premium')) {
+        s += 6;
+      }
+      if (name.contains('compact') || name.contains('local')) s -= 2;
+      return s;
+    }
+
+    candidates.sort((a, b) => score(b).compareTo(score(a)));
+    return candidates.first;
+  }
+
+  String _prepareTextForSpeech(String input) {
+    var text = input;
+    text = text.replaceAll(RegExp(r'```[\s\S]*?```'), ' code block omitted. ');
+    text = text.replaceAll(RegExp(r'https?://\S+'), '');
+    text = text.replaceAll(RegExp(r'[_*#`]+'), ' ');
+    text = text.replaceAll('\n', '. ');
+    text = text.replaceAll(RegExp(r'\s+'), ' ').trim();
+    return text;
+  }
+
+  Future<void> _speakAssistantText(String text) async {
+    final speakText = _prepareTextForSpeech(text);
+    if (speakText.isEmpty) return;
+    if (!_uiTtsReady) {
+      await _initUiTts();
+    }
+    try {
+      await _uiTts.stop();
+      await _uiTts.speak(speakText);
+    } catch (e) {
+      dev.log('UI TTS speak failed: $e');
+    }
   }
 
   Future<void> reinitializeLLM() async {
@@ -270,14 +349,12 @@ class ChatController extends ChangeNotifier {
       if (isSpeaking != null && isSpeaking) {
         isSpeakValueNotifier.value = true;
         if (!bleConnection) {
-          FlutterForegroundTask.sendDataToMain({'connectionState': true});
           FlutterForegroundTask.sendDataToTask("InitTTS");
           bleConnection = true;
         }
       } else if (isSpeaking != null && !isSpeaking) {
         isSpeakValueNotifier.value = false;
         if (!bleConnection) {
-          FlutterForegroundTask.sendDataToMain({'connectionState': true});
           FlutterForegroundTask.sendDataToTask("InitTTS");
           bleConnection = true;
         }
@@ -336,7 +413,6 @@ class ChatController extends ChangeNotifier {
     }
   }
 
-  // 添加处理ASR流数据的方法
   void _handleAsrStreamData(
     String asrMessageId,
     String asrText,
@@ -349,9 +425,7 @@ class ChatController extends ChangeNotifier {
     bool isInBottom = checkInBottom();
 
     if (isStreaming && !isEndpoint) {
-      // 处理流式数据（打字机效果）
       if (!asrMessageIndices.containsKey(asrMessageId)) {
-        // 创建新的ASR流消息
         final messageData = {
           'id': asrMessageId,
           'text': asrText,
@@ -373,7 +447,6 @@ class ChatController extends ChangeNotifier {
           firstScrollToBottom();
         }
       } else {
-        // 更新现有的ASR流消息
         final messageIndex = asrMessageIndices[asrMessageId]!;
         if (messageIndex < newMessages.length &&
             newMessages[messageIndex]['id'] == asrMessageId) {
@@ -387,7 +460,6 @@ class ChatController extends ChangeNotifier {
         }
       }
     } else if (isEndpoint) {
-      // 处理最终结果
       if (asrMessageIndices.containsKey(asrMessageId)) {
         final messageIndex = asrMessageIndices[asrMessageId]!;
         if (messageIndex < newMessages.length &&
@@ -395,7 +467,6 @@ class ChatController extends ChangeNotifier {
           newMessages[messageIndex]['text'] = asrText;
           newMessages[messageIndex]['isAsrStreaming'] = false;
 
-          // 清理ASR流状态
           asrStreamingMessages.remove(asrMessageId);
           asrMessageIndices.remove(asrMessageId);
 
@@ -405,7 +476,6 @@ class ChatController extends ChangeNotifier {
           }
         }
       } else {
-        // 直接插入最终消息（如果没有流式过程）
         insertNewMessage({
           'id': asrMessageId,
           'text': asrText,
@@ -415,7 +485,6 @@ class ChatController extends ChangeNotifier {
     }
   }
 
-  // 添加清理ASR流状态的方法
   void _cleanupAsrStreams() {
     asrStreamingMessages.clear();
     asrMessageIndices.clear();
@@ -498,13 +567,11 @@ class ChatController extends ChangeNotifier {
         }
       }
 
-      // 更新消息文本（统一LLM返回的是完整响应）
       updateMessageText(responseId, response, isFinal: true, isHelp: isHelp);
 
       if (isInBottom) {
         firstScrollToBottom();
       }
-      // 保存到数据库
       if (responseId != null) {
         final finalText =
             newMessages.firstWhere((msg) => msg['id'] == responseId)['text']
@@ -517,6 +584,7 @@ class ChatController extends ChangeNotifier {
           RecordEntity(role: 'assistant', content: cleanText),
         );
         chatResponse.addChatSession('assistant', cleanText);
+        await _speakAssistantText(cleanText);
       }
     } catch (e) {
       String errorInfo = e.toString();
@@ -563,7 +631,7 @@ class ChatController extends ChangeNotifier {
   void copyToClipboard(BuildContext context, String text) {
     Clipboard.setData(ClipboardData(text: text));
     ScaffoldMessenger.of(context).showSnackBar(
-       SnackBar(
+      SnackBar(
         content: Text('Copied to clipboard!'),
         duration: Duration(milliseconds: 500),
       ),
@@ -631,15 +699,13 @@ class ChatController extends ChangeNotifier {
     try {
       await _audioPlayer.stopPlayer();
 
-      // 尝试直接播放PCM数据 (QwenOmni返回原始PCM数据)
       await _audioPlayer.startPlayer(
         codec: code.Codec.pcm16,
         fromDataBuffer: audioData,
-        sampleRate: 24000, // 24kHz采样率
-        numChannels: 1, // 单声道
+        sampleRate: 24000,
+        numChannels: 1,
       );
     } catch (e) {
-      // 备选方案1：尝试WAV格式
       try {
         await _audioPlayer.stopPlayer();
         await _audioPlayer.startPlayer(
@@ -647,7 +713,6 @@ class ChatController extends ChangeNotifier {
           fromDataBuffer: audioData,
         );
       } catch (e2) {
-        // 备选方案2：尝试AAC格式
         try {
           await _audioPlayer.stopPlayer();
           await _audioPlayer.startPlayer(
@@ -655,13 +720,12 @@ class ChatController extends ChangeNotifier {
             fromDataBuffer: audioData,
           );
         } catch (e3) {
-          // 备选方案3：尝试默认编码
           try {
             await _audioPlayer.stopPlayer();
             await _audioPlayer.startPlayer(fromDataBuffer: audioData);
           } catch (e4) {
-            dev.log('QwenOmni音频播放失败: $e');
-            throw Exception('无法播放音频');
+            dev.log('QwenOmni audio playback failed: $e');
+            throw Exception('Failed to play audio');
           }
         }
       }

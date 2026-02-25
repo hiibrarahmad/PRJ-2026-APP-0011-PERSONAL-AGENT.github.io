@@ -11,7 +11,7 @@
 	<key>CFBundleDevelopmentRegion</key>
 	<string>$(DEVELOPMENT_LANGUAGE)</string>
 	<key>CFBundleDisplayName</key>
-	<string>I.A PERSONAL AGENT</string>
+	<string>I.A agent</string>
 	<key>CFBundleExecutable</key>
 	<string>$(EXECUTABLE_NAME)</string>
 	<key>CFBundleIdentifier</key>
@@ -19,7 +19,7 @@
 	<key>CFBundleInfoDictionaryVersion</key>
 	<string>6.0</string>
 	<key>CFBundleName</key>
-	<string>I.A PERSONAL AGENT</string>
+	<string>I.A agent</string>
 	<key>CFBundlePackageType</key>
 	<string>APPL</string>
 	<key>CFBundleShortVersionString</key>
@@ -46,11 +46,11 @@
 	<key>NSAppleIDUsageDescription</key>
 	<string>inc.buddie.app</string>
 	<key>NSBluetoothAlwaysUsageDescription</key>
-	<string>I.A PERSONAL AGENT requires Bluetooth to connect with devices.</string>
+	<string>I.A agent requires Bluetooth to connect with devices.</string>
 	<key>NSBluetoothPeripheralUsageDescription</key>
-	<string>I.A PERSONAL AGENT requires Bluetooth to connect to nearby devices.</string>
+	<string>I.A agent requires Bluetooth to connect to nearby devices.</string>
 	<key>NSMicrophoneUsageDescription</key>
-	<string>I.A PERSONAL AGENT uses the microphone to record your speech and convert it to text.</string>
+	<string>I.A agent uses the microphone to record your speech and convert it to text.</string>
 	<key>UIApplicationSupportsIndirectInputEvents</key>
 	<true/>
 	<key>UIBackgroundModes</key>

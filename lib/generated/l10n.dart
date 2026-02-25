@@ -54,14 +54,9 @@ class S {
     return Localizations.of<S>(context, S);
   }
 
-  /// `I.A PERSONAL AGENT`
+  /// `I.A agent`
   String get appName {
-    return Intl.message(
-      'I.A PERSONAL AGENT',
-      name: 'appName',
-      desc: '',
-      args: [],
-    );
+    return Intl.message('I.A agent', name: 'appName', desc: '', args: []);
   }
 
   /// `Next step`
@@ -139,10 +134,10 @@ class S {
     );
   }
 
-  /// `I.A PERSONAL AGENT!`
+  /// `I.A agent!`
   String get pageWelcomeText2 {
     return Intl.message(
-      'I.A PERSONAL AGENT!',
+      'I.A agent!',
       name: 'pageWelcomeText2',
       desc: '',
       args: [],
@@ -179,10 +174,10 @@ class S {
     );
   }
 
-  /// `Scanning earbuds...`
+  /// `Checking Bluetooth headset...`
   String get ScanningBuddie {
     return Intl.message(
-      'Scanning earbuds...',
+      'Checking Bluetooth headset...',
       name: 'ScanningBuddie',
       desc: '',
       args: [],
@@ -839,10 +834,10 @@ class S {
     );
   }
 
-  /// `Learn more about I.A PERSONAL AGENT`
+  /// `Learn more about I.A agent`
   String get pageSettingAboutSubtitle {
     return Intl.message(
-      'Learn more about I.A PERSONAL AGENT',
+      'Learn more about I.A agent',
       name: 'pageSettingAboutSubtitle',
       desc: '',
       args: [],
@@ -869,10 +864,10 @@ class S {
     );
   }
 
-  /// `About I.A PERSONAL AGENT`
+  /// `About I.A agent`
   String get pageAboutTitle {
     return Intl.message(
-      'About I.A PERSONAL AGENT',
+      'About I.A agent',
       name: 'pageAboutTitle',
       desc: '',
       args: [],

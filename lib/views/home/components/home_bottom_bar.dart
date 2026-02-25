@@ -1,5 +1,6 @@
 import 'package:app/views/home/components/chat_bottom_buttons.dart';
 import 'package:app/views/home/components/chat_text_field.dart';
+import 'package:app/constants/theme_constants.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 
@@ -57,10 +58,10 @@ class HomeBottomBar extends StatelessWidget {
                 width: double.infinity,
                 height: 36.sp,
                 decoration: BoxDecoration(
-                  color: Colors.blue.withOpacity(0.1),
+                  color: ThemeConstants.primary.withAlpha(26),
                   borderRadius: BorderRadius.circular(18.sp),
                   border: Border.all(
-                    color: Colors.blue.withOpacity(0.3),
+                    color: ThemeConstants.primary.withAlpha(90),
                     width: 1,
                   ),
                 ),
@@ -70,14 +71,14 @@ class HomeBottomBar extends StatelessWidget {
                     Icon(
                       Icons.mic_external_on,
                       size: 16.sp,
-                      color: Colors.blue,
+                      color: ThemeConstants.primary,
                     ),
                     SizedBox(width: 8.sp),
                     Text(
-                      'ASR模式切换',
+                      'Switch ASR mode',
                       style: TextStyle(
                         fontSize: 14.sp,
-                        color: Colors.blue,
+                        color: ThemeConstants.primary,
                         fontWeight: FontWeight.w500,
                       ),
                     ),

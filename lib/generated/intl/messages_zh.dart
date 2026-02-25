@@ -101,7 +101,7 @@ class MessageLookup extends MessageLookupByLibrary {
     "aliyunAPIKeyManageTitle": MessageLookupByLibrary.simpleMessage(
       "阿里云API Key管理",
     ),
-    "appName": MessageLookupByLibrary.simpleMessage("I.A PERSONAL AGENT"),
+    "appName": MessageLookupByLibrary.simpleMessage("I.A agent"),
     "asrModeCloudOnlineDescription": MessageLookupByLibrary.simpleMessage(
       "短音频识别",
     ),
@@ -177,9 +177,7 @@ class MessageLookup extends MessageLookupByLibrary {
     "languageChinese": MessageLookupByLibrary.simpleMessage("中文"),
     "languageEnglish": MessageLookupByLibrary.simpleMessage("英语"),
     "meetingListTile": MessageLookupByLibrary.simpleMessage("会议"),
-    "notPairedNoticeText1": MessageLookupByLibrary.simpleMessage(
-      "耳机未连接",
-    ),
+    "notPairedNoticeText1": MessageLookupByLibrary.simpleMessage("耳机未连接"),
     "notPairedNoticeText2": MessageLookupByLibrary.simpleMessage(
       "请打开手机的蓝牙设置\n\n连接耳机以继续",
     ),
@@ -187,7 +185,7 @@ class MessageLookup extends MessageLookupByLibrary {
     "pageAboutOfficialMedias": MessageLookupByLibrary.simpleMessage("官方媒体"),
     "pageAboutOfficialWebsite": MessageLookupByLibrary.simpleMessage("官网"),
     "pageAboutPrivacyPolicy": MessageLookupByLibrary.simpleMessage("隐私政策"),
-    "pageAboutTitle": MessageLookupByLibrary.simpleMessage("关于 I.A PERSONAL AGENT"),
+    "pageAboutTitle": MessageLookupByLibrary.simpleMessage("关于 I.A agent"),
     "pageAboutUserAgreement": MessageLookupByLibrary.simpleMessage("用户协议"),
     "pageAboutVersion": m3,
     "pageAboutX": MessageLookupByLibrary.simpleMessage("X"),
@@ -215,7 +213,7 @@ class MessageLookup extends MessageLookupByLibrary {
       "未知模型",
     ),
     "pageSettingAboutSubtitle": MessageLookupByLibrary.simpleMessage(
-      "了解更多 I.A PERSONAL AGENT",
+      "了解更多 I.A agent",
     ),
     "pageSettingAboutTitle": MessageLookupByLibrary.simpleMessage("关于"),
     "pageSettingDarkMode": MessageLookupByLibrary.simpleMessage("暗黑模式"),
@@ -234,7 +232,7 @@ class MessageLookup extends MessageLookupByLibrary {
     "pageWelcomeText1": MessageLookupByLibrary.simpleMessage(
       "Thank you \nfor choosing ",
     ),
-    "pageWelcomeText2": MessageLookupByLibrary.simpleMessage("I.A PERSONAL AGENT!"),
+    "pageWelcomeText2": MessageLookupByLibrary.simpleMessage("I.A agent!"),
     "pageWelcomeText3": MessageLookupByLibrary.simpleMessage(
       "Discover recording, \nchatting, and journaling \nfeatures.",
     ),

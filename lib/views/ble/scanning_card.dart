@@ -17,7 +17,7 @@ class ScanningCard extends StatelessWidget {
             mainAxisSize: MainAxisSize.max,
             children: [
               Text(
-                '🎧 ${S.of(context).ScanningBuddie}',
+                S.of(context).ScanningBuddie,
                 style: const TextStyle(
                   fontSize: 18,
                   fontWeight: FontWeight.bold,

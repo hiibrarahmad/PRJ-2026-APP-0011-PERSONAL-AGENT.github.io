@@ -1,4 +1,5 @@
 import 'package:app/controllers/style_controller.dart';
+import 'package:app/constants/theme_constants.dart';
 import 'package:app/utils/assets_util.dart';
 import 'package:app/views/ui/bud_icon.dart';
 import 'package:flutter/material.dart';
@@ -31,7 +32,13 @@ class ChatTextField extends StatelessWidget {
     return Container(
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(6),
-        color: isLightMode ? const Color(0x99FFFFFF) : const Color(0xFF333333),
+        color: isLightMode ? const Color(0x99FFFFFF) : ThemeConstants.card,
+        border: Border.all(
+          color: isLightMode
+              ? Colors.white.withAlpha(140)
+              : ThemeConstants.primaryDark.withAlpha(80),
+          width: 0.7,
+        ),
       ),
       padding: EdgeInsets.only(left: 8.sp, right: 12.sp),
       child: Row(
@@ -56,7 +63,7 @@ class ChatTextField extends StatelessWidget {
               maxLines: 9,
               textInputAction: TextInputAction.send,
               style: TextStyle(
-                color: isLightMode ? Colors.black : Colors.white,
+                color: isLightMode ? Colors.black : ThemeConstants.text,
               ),
               decoration: InputDecoration(
                 border: InputBorder.none,
@@ -66,7 +73,7 @@ class ChatTextField extends StatelessWidget {
                   fontSize: 14,
                   color: isLightMode
                       ? const Color(0xFF999999)
-                      : const Color(0x99FFFFFF),
+                      : ThemeConstants.textSecondary,
                 ),
               ),
             ),

@@ -1,4 +1,5 @@
 import 'package:app/controllers/style_controller.dart';
+import 'package:app/constants/theme_constants.dart';
 import 'package:app/views/ui/bud_icon.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
@@ -9,12 +10,7 @@ class BudShadowButton extends StatelessWidget {
   final String? text;
   final GestureTapCallback? onTap;
 
-  const BudShadowButton({
-    super.key,
-    required this.icon,
-    this.text,
-    this.onTap,
-  });
+  const BudShadowButton({super.key, required this.icon, this.text, this.onTap});
 
   @override
   Widget build(BuildContext context) {
@@ -27,8 +23,14 @@ class BudShadowButton extends StatelessWidget {
       child: Container(
         decoration: BoxDecoration(
           shape: text == null ? BoxShape.circle : BoxShape.rectangle,
-          color: isLightMode ? const Color(0x99FFFFFF) : const Color(0xFF333333),
+          color: isLightMode ? const Color(0x99FFFFFF) : ThemeConstants.card,
           borderRadius: text != null ? BorderRadius.circular(46) : null,
+          border: Border.all(
+            color: isLightMode
+                ? Colors.white.withAlpha(140)
+                : ThemeConstants.primaryDark.withAlpha(80),
+            width: 0.7,
+          ),
           boxShadow: isLightMode
               ? const [
                   BoxShadow(
@@ -50,10 +52,7 @@ class BudShadowButton extends StatelessWidget {
           mainAxisAlignment: MainAxisAlignment.center,
           mainAxisSize: MainAxisSize.min,
           children: [
-            BudIcon(
-              icon: icon,
-              size: 22.sp,
-            ),
+            BudIcon(icon: icon, size: 22.sp),
             if (text != null)
               Padding(
                 padding: EdgeInsets.only(left: 6.sp),
@@ -64,7 +63,9 @@ class BudShadowButton extends StatelessWidget {
                   style: TextStyle(
                     fontWeight: FontWeight.bold,
                     fontSize: 16.sp,
-                    color: isLightMode ? const Color(0xFF333333) : Colors.white,
+                    color: isLightMode
+                        ? const Color(0xFF333333)
+                        : ThemeConstants.text,
                   ),
                 ),
               ),

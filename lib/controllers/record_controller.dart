@@ -1,41 +1,5 @@
-/// 录音界面核心控制器
-///
-/// 管理录音界面的完整生命周期和交互逻辑，主要功能包括：
-/// 1. 录音服务管理：
-///   - 前台服务启动/停止
-///   - 录音权限管理
-///   - 设备状态监控
-/// 2. 蓝牙设备集成：
-///   - 蓝牙连接状态跟踪
-///   - 设备信息维护
-///   - 跨平台权限处理
-/// 3. 状态同步：
-///   - 与前台服务双向通信
-///
-/// 核心工作流程：
-/// 1. 初始化阶段：
-///   - 请求必要权限（录音/蓝牙/通知）
-///   - 配置前台服务
-/// 2. 运行阶段：
-///   - 监听服务通信数据
-///   - 同步录音/蓝牙状态
-///   - 处理用户交互
-/// 3. 销毁阶段：
-///   - 释放资源
-///   - 注销回调
-///
-/// 使用示例：
-/// ```dart
-/// // 在StatefulWidget中初始化
-/// final controller = RecordScreenController();
-///
-/// @override
-/// void initState() {
-///   super.initState();
-///   controller.attach(this);
-///   controller.load(); // 启动服务
-/// }
-/// ```
+/// Foreground recording and Bluetooth state bridge for the UI layer.
+/// It starts/stops the background service and keeps connection state in sync.
 
 import 'dart:async';
 import 'dart:io';
@@ -46,7 +10,6 @@ import 'package:flutter_blue_plus/flutter_blue_plus.dart';
 import 'package:flutter_foreground_task/flutter_foreground_task.dart';
 import '../services/asr_service.dart';
 
-
 class RecordScreenController {
   State? _state;
 
@@ -55,7 +18,8 @@ class RecordScreenController {
   bool isRecording = true;
   String? deviceRemoteId;
   String? deviceName;
-  BluetoothConnectionState connectionState = BluetoothConnectionState.disconnected;
+  BluetoothConnectionState connectionState =
+      BluetoothConnectionState.disconnected;
 
   Future<void> load() async {
     if (!await FlutterForegroundTask.isRunningService) {
@@ -97,7 +61,7 @@ class RecordScreenController {
     FlutterForegroundTask.init(
       androidNotificationOptions: AndroidNotificationOptions(
         channelId: 'buddie_service',
-        channelName: 'I.A PERSONAL AGENT Service',
+        channelName: 'I.A agent Service',
         channelImportance: NotificationChannelImportance.HIGH,
         priority: NotificationPriority.HIGH,
       ),
@@ -118,15 +82,17 @@ class RecordScreenController {
   Future<void> startService() async {
     await _requestRecordPermission();
     await _requestBlePermissions();
-    final ServiceRequestResult result = await FlutterForegroundTask.startService(
-      serviceId: 300,
-      notificationTitle: 'I.A PERSONAL AGENT Service',
-      notificationText: 'Tap to return to the app',
-      callback: startRecordService,
-    );
+    final ServiceRequestResult result =
+        await FlutterForegroundTask.startService(
+          serviceId: 300,
+          notificationTitle: 'I.A agent Service',
+          notificationText: 'Tap to return to the app',
+          callback: startRecordService,
+        );
 
     if (!result.success) {
-      throw result.error ?? Exception('An error occurred and the service could not be started.');
+      throw result.error ??
+          Exception('An error occurred and the service could not be started.');
     }
   }
 
@@ -135,10 +101,12 @@ class RecordScreenController {
       return;
     }
 
-    final ServiceRequestResult result = await FlutterForegroundTask.stopService();
+    final ServiceRequestResult result =
+        await FlutterForegroundTask.stopService();
 
     if (!result.success) {
-      throw result.error ?? Exception('An error occurred and the service could not be stopped.');
+      throw result.error ??
+          Exception('An error occurred and the service could not be stopped.');
     }
   }
 
@@ -165,12 +133,21 @@ class RecordScreenController {
       }
 
       if (connection == true) {
+        final hasKnownDevice =
+            (devId != null && devId.isNotEmpty) ||
+            (deviceRemoteId != null && deviceRemoteId!.isNotEmpty);
+        if (!hasKnownDevice) {
+          _state?.setState(() {
+            connectionState = BluetoothConnectionState.disconnected;
+          });
+          return;
+        }
         _state?.setState(() {
           connectionState = BluetoothConnectionState.connected;
-          deviceName = devName;
-          deviceRemoteId = devId;
+          deviceName = devName ?? deviceName;
+          deviceRemoteId = devId ?? deviceRemoteId;
         });
-      } else if(connection == false) {
+      } else if (connection == false) {
         _state?.setState(() {
           connectionState = BluetoothConnectionState.disconnected;
           deviceName = devName;
@@ -214,7 +191,9 @@ class RecordScreenController {
 
   Future<void> _requestRecordPermission() async {
     if (!await AudioRecorder().hasPermission()) {
-      throw Exception('To start record service, you must grant microphone permission.');
+      throw Exception(
+        'To start record service, you must grant microphone permission.',
+      );
     }
   }
 }

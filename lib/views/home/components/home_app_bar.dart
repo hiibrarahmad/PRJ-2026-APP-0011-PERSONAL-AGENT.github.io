@@ -1,4 +1,5 @@
 import 'package:app/controllers/style_controller.dart';
+import 'package:app/constants/theme_constants.dart';
 import 'package:app/utils/assets_util.dart';
 import 'package:app/utils/route_utils.dart';
 import 'package:app/views/ui/bud_icon.dart';
@@ -46,7 +47,7 @@ class HomeAppBar extends StatelessWidget {
             style: TextStyle(
               fontWeight: FontWeight.bold,
               fontSize: 18,
-              color: isLightMode ? Colors.black : Colors.white,
+              color: isLightMode ? Colors.black : ThemeConstants.text,
             ),
           ),
         ),

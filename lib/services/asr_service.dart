@@ -1,24 +1,5 @@
-/// 自动语音转录模块
 ///
-/// 该类作为 Flutter 前台服务的任务处理器，负责：
-/// 1. 初始化及管理所有依赖资源：
-///    - 配置与加载 ASR（本地/云）、VAD、关键字检测、TTS、BLE 设备
-///    - 启动 ObjectBox 数据库、加载LLM服务
-/// 2. 处理音频录制与流：
-///    - 管理录音、音频包解码、音频处理
-///    - 按需保存 WAV 文件
-///    - 基于 VAD 检测语音活动，推送音频数据到本地或云端 ASR
-/// 3. 支持对话/会议两种模式：
-///    - 自动识别并切换对话模式与会议模式
-/// 4. 集成 UnifiedChatManager：
-///    - 在对话模式下将 ASR 文本推送给 LLM，支持带音频的流式请求
-///    - 管理聊天流状态，处理响应并持久化助手/用户对话
-/// 5. 与前台任务通信：
-///    - 通过 FlutterForegroundTask.sendDataToMain 发送服务状态、ASR/VAD 事件、聊天内容
-///    - 响应来自主线程的控制命令（开始/停止录音、切换设备、重载配置等）
 ///
-/// 该处理器单例将在前台服务启动时通过 `startRecordService()` 注册，
-/// 生命周期严格与 FlutterForegroundTask 绑定，确保音频处理与任务处理逻辑在后台持续运行。
 
 import 'dart:async';
 import 'dart:convert';
@@ -118,23 +99,24 @@ class RecordServiceHandler extends TaskHandler {
   /// Load user configured ASR mode from SharedPreferences
   Future<void> _loadUserAsrModeConfig() async {
     try {
-      final chatMode = _currentChatMode; // 获取当前聊天模式的快照
+      final chatMode = _currentChatMode;
       final instance = await SharedPreferences.getInstance();
       await instance.reload();
       final asrModeKey = await SPUtil.getString('asr_mode_${chatMode.name}');
 
-      // 再次检查聊天模式是否发生变化，避免竞态条件
       if (chatMode != _currentChatMode) {
-        dev.log('聊天模式在配置加载过程中发生变化，重新加载配置');
-        return _loadUserAsrModeConfig(); // 递归重新加载
+        dev.log(
+          'Chat mode changed while loading configuration; reloading settings',
+        );
+        return _loadUserAsrModeConfig();
       }
 
       _cachedUserAsrMode = AsrModeUtils.fromStorageKey(asrModeKey);
       dev.log(
-        '已加载用户ASR配置: ${_cachedUserAsrMode?.name ?? "使用默认"}，聊天模式: ${chatMode.name}',
+        'Loaded user ASR mode: ${_cachedUserAsrMode?.name ?? "default"}, chat mode: ${chatMode.name}',
       );
     } catch (e) {
-      dev.log('加载用户ASR配置失败: $e');
+      dev.log('Failed to load user ASR mode: $e');
       _cachedUserAsrMode = null;
     }
   }
@@ -182,7 +164,8 @@ class RecordServiceHandler extends TaskHandler {
 
   List<int> combinedOpusAudio = [];
 
-  final StreamController<Uint8List> _bleAudioStreamController = StreamController<Uint8List>();
+  final StreamController<Uint8List> _bleAudioStreamController =
+      StreamController<Uint8List>();
   StreamSubscription<Uint8List>? _bleAudioStreamSubscription;
 
   bool _onMicrophone = false;
@@ -195,48 +178,106 @@ class RecordServiceHandler extends TaskHandler {
   int? _ffStartTime;
   int? _feStartTime;
 
-  // ASR流消息处理的字段
   String? _currentAsrMessageId;
-  StreamSubscription? _currentChatSubscription; // 重命名并独立管理聊天流订阅
-  bool _isProcessingChat = false; // 添加聊天处理状态标记
+  StreamSubscription? _currentChatSubscription;
+  bool _isProcessingChat = false;
+  static final RegExp _cjkCharacters = RegExp(r'[\u4E00-\u9FFF]');
+  bool _isTtsSpeaking = false;
 
-  // 新增：用于qwenOmni的音频保存
-
-  /// 检查是否满足音频保存条件
-  /// 1. 当前LLM是qwenOmni
-  /// 2. 当前ASR模式是本地的ASR模式
-  /// 3. 在对话模式下
   bool _shouldSaveAudioForQwenOmni() {
     try {
-      // 检查当前LLM类型
       final currentLLMType = LLMFactory.instance.currentType;
       if (currentLLMType != LLMType.qwenOmni) {
         return false;
       }
 
-      // 检查是否在对话模式
       if (!_inDialogMode) {
         return false;
       }
 
       return true;
     } catch (e) {
-      dev.log('检查音频保存条件时出错: $e');
+      dev.log('Failed to evaluate audio-save condition: $e');
       return false;
     }
   }
 
-  /// 将Float32List转换为Uint8List (16位PCM格式)
   Uint8List _convertFloat32ToUint8List(Float32List samples) {
-    final bytes = ByteData(samples.length * 2); // 每个样本2字节
+    final bytes = ByteData(samples.length * 2);
 
     for (int i = 0; i < samples.length; i++) {
-      // 将浮点值 (-1.0 to 1.0) 转换为 16位整数 (-32768 to 32767)
       int intSample = (samples[i] * 32767).round().clamp(-32768, 32767);
       bytes.setInt16(i * 2, intSample, Endian.little);
     }
 
     return bytes.buffer.asUint8List();
+  }
+
+  String _sanitizeAsrText(String raw) {
+    if (raw.isEmpty) return '';
+
+    var text = raw
+        .replaceFirst('Buddy', 'Buddie')
+        .replaceFirst('buddy', 'buddie')
+        .replaceFirst('body', 'buddie');
+
+    // Remove CJK characters to keep speech processing in English only.
+    text = text.replaceAll(_cjkCharacters, ' ');
+    text = text.replaceAll(RegExp(r'\s+'), ' ').trim();
+    return text;
+  }
+
+  String _prepareTextForSpeech(String input) {
+    var text = input;
+    text = text.replaceAll(RegExp(r'```[\s\S]*?```'), ' code block omitted. ');
+    text = text.replaceAll(RegExp(r'https?://\S+'), '');
+    text = text.replaceAll(RegExp(r'[_*#`]+'), ' ');
+    text = text.replaceAll('\n', '. ');
+    text = text.replaceAll(RegExp(r'\s+'), ' ').trim();
+    return text;
+  }
+
+  Map<String, String>? _pickBestEnglishVoice(dynamic voicesRaw) {
+    if (voicesRaw is! List) return null;
+
+    final candidates = <Map<String, String>>[];
+    for (final raw in voicesRaw) {
+      if (raw is! Map) continue;
+      final name = (raw['name'] ?? '').toString();
+      final locale = (raw['locale'] ?? '').toString();
+      if (name.isEmpty || locale.isEmpty) continue;
+      if (!locale.toLowerCase().startsWith('en')) continue;
+      candidates.add({'name': name, 'locale': locale});
+    }
+
+    if (candidates.isEmpty) return null;
+
+    int score(Map<String, String> voice) {
+      final name = (voice['name'] ?? '').toLowerCase();
+      final locale = (voice['locale'] ?? '').toLowerCase();
+      var s = 0;
+      if (locale.startsWith('en-us')) s += 5;
+      if (name.contains('neural') ||
+          name.contains('wavenet') ||
+          name.contains('natural') ||
+          name.contains('studio') ||
+          name.contains('enhanced') ||
+          name.contains('premium')) {
+        s += 6;
+      }
+      if (name.contains('compact') || name.contains('local')) s -= 2;
+      return s;
+    }
+
+    candidates.sort((a, b) => score(b).compareTo(score(a)));
+    return candidates.first;
+  }
+
+  bool _shouldInterruptTts(String asrText, bool isFinish) {
+    if (!_isTtsSpeaking) return false;
+    if (!isFinish) return false;
+    if (asrText.length < 2) return false;
+    return true;
   }
 
   @override
@@ -263,7 +304,6 @@ class RecordServiceHandler extends TaskHandler {
     initOpus(await opus_flutter.load());
     opusDecoder = SimpleOpusDecoder(sampleRate: 16000, channels: 1);
 
-    // 初始化用户配置的ASR模式缓存
     await _loadUserAsrModeConfig();
 
     _initTts();
@@ -290,20 +330,19 @@ class RecordServiceHandler extends TaskHandler {
       // Handle LLM configuration reload command (when settings change)
       if (data['action'] == 'reloadLLMConfig') {
         try {
-          dev.log('后台服务: 收到LLM配置重载请求');
+          dev.log('Background service: received LLM config reload request');
 
-          // 重新加载LLMFactory配置
           await LLMFactory.instance.reloadLLMConfig();
 
-          // 重新初始化聊天管理器中的LLM
           await _unifiedChatManager.reinitializeLLM();
 
-          // 获取当前LLM状态并反馈给前端
           final currentLLMType = LLMFactory.instance.currentType;
           final availableTypes = await LLMFactory.getAvailableLLMTypes();
           final supportsAudioInput = LLMFactory.instance.supportsAudioInput;
 
-          dev.log('后台服务: LLM配置重载完成，当前类型: ${currentLLMType?.name}');
+          dev.log(
+            'Background service: LLM config reload complete, current type: ${currentLLMType?.name}',
+          );
 
           FlutterForegroundTask.sendDataToMain({
             'llmConfigReloaded': true,
@@ -312,7 +351,7 @@ class RecordServiceHandler extends TaskHandler {
             'supportsAudioInput': supportsAudioInput,
           });
         } catch (e) {
-          dev.log('后台服务: LLM配置重载失败: $e');
+          dev.log('Background service: LLM config reload failed: $e');
           FlutterForegroundTask.sendDataToMain({
             'llmConfigReloaded': false,
             'error': e.toString(),
@@ -326,9 +365,10 @@ class RecordServiceHandler extends TaskHandler {
         final llmTypeName = data['llmType'] as String?;
         if (llmTypeName != null) {
           try {
-            dev.log('后台服务: 收到LLM类型切换请求: $llmTypeName');
+            dev.log(
+              'Background service: received LLM type switch request: $llmTypeName',
+            );
 
-            // 解析LLM类型
             LLMType? targetType;
             switch (llmTypeName) {
               case 'customLLM':
@@ -340,13 +380,13 @@ class RecordServiceHandler extends TaskHandler {
             }
 
             if (targetType != null) {
-              // 直接切换LLM类型
               await LLMFactory.instance.switchToLLMType(targetType);
 
-              // 重新初始化聊天管理器
               await _unifiedChatManager.reinitializeLLM();
 
-              dev.log('后台服务: LLM类型切换完成: ${targetType.name}');
+              dev.log(
+                'Background service: LLM type switch complete: ${targetType.name}',
+              );
 
               FlutterForegroundTask.sendDataToMain({
                 'llmSwitchResult': 'success',
@@ -354,10 +394,10 @@ class RecordServiceHandler extends TaskHandler {
                 'supportsAudioInput': LLMFactory.instance.supportsAudioInput,
               });
             } else {
-              throw Exception('无效的LLM类型: $llmTypeName');
+              throw Exception('Invalid LLM type: $llmTypeName');
             }
           } catch (e) {
-            dev.log('后台服务: LLM类型切换失败: $e');
+            dev.log('Background service: LLM type switch failed: $e');
             FlutterForegroundTask.sendDataToMain({
               'llmSwitchResult': 'failed',
               'error': e.toString(),
@@ -368,7 +408,10 @@ class RecordServiceHandler extends TaskHandler {
       }
     }
 
-    if (data == 'startRecording') {
+    if (data == Constants.actionStopRecord || data == 'stopRecord') {
+      await _stopAndTerminateService();
+      return;
+    } else if (data == 'startRecording') {
       _onRecording = true;
     } else if (data == 'stopRecording') {
       _onRecording = false;
@@ -389,14 +432,15 @@ class RecordServiceHandler extends TaskHandler {
       // await _startMicrophone();
       // _budUser = false;
       _inDialogMode = false;
-      // 聊天模式变化时重新加载ASR配置
       await _loadUserAsrModeConfig();
       // IsolateTts.interrupt();
       _flutterTts.stop();
     } else if (data == Constants.actionStopMicrophone) {
       await _stopMicrophone();
       _budUser = true;
-      FlutterForegroundTask.sendDataToMain({'connectionState': true});
+      final isConnected =
+          BleService().connectionState == BluetoothConnectionState.connected;
+      FlutterForegroundTask.sendDataToMain({'connectionState': isConnected});
     } else if (data == "InitTTS") {
       try {
         // IsolateTts.init();
@@ -406,28 +450,27 @@ class RecordServiceHandler extends TaskHandler {
     } else if (data == 'resetCloudAsr') {
       // Reset cloud ASR service, usually called after successful payment to get latest quota
       try {
-        dev.log('正在重置云端ASR服务...');
+        dev.log('Resetting cloud ASR service...');
         _cloudAsr.dispose();
         await _cloudAsr.init();
         _cloudAsr.onASRResult = onASRResult;
-        dev.log('云端ASR服务重置完成');
+        dev.log('Cloud ASR service reset completed');
         FlutterForegroundTask.sendDataToMain({'asrResetResult': 'success'});
       } catch (e) {
-        dev.log('云端ASR服务重置失败: $e');
+        dev.log('Cloud ASR service reset failed: $e');
         FlutterForegroundTask.sendDataToMain({
           'asrResetResult': 'failed',
           'error': e.toString(),
         });
       }
     } else if (data == 'reinitializeLLM') {
-      // 重新初始化LLM实例（用于API Key配置更改后）
       try {
-        dev.log('正在重新初始化LLM...');
+        dev.log('Reinitializing LLM...');
         await _unifiedChatManager.reinitializeLLM();
-        dev.log('LLM重新初始化完成');
+        dev.log('LLM reinitialized');
         FlutterForegroundTask.sendDataToMain({'llmReinitResult': 'success'});
       } catch (e) {
-        dev.log('LLM重新初始化失败: $e');
+        dev.log('LLM reinitialization failed: $e');
         FlutterForegroundTask.sendDataToMain({
           'llmReinitResult': 'failed',
           'error': e.toString(),
@@ -450,10 +493,25 @@ class RecordServiceHandler extends TaskHandler {
 
   @override
   void onNotificationButtonPressed(String id) async {
-    if (id == Constants.actionStopRecord) {
+    if (id == Constants.actionStopRecord ||
+        id == 'stopRecord' ||
+        id == 'stop') {
+      await _stopAndTerminateService();
+    }
+  }
+
+  Future<void> _stopAndTerminateService() async {
+    try {
       await _stopRecord();
-      if (await FlutterForegroundTask.isRunningService) {
-        FlutterForegroundTask.stopService();
+    } catch (e) {
+      dev.log('Stop record failed: $e');
+    }
+
+    if (await FlutterForegroundTask.isRunningService) {
+      try {
+        await FlutterForegroundTask.stopService();
+      } catch (e) {
+        dev.log('Stop foreground service failed: $e');
       }
     }
   }
@@ -483,7 +541,9 @@ class RecordServiceHandler extends TaskHandler {
     });
 
     _bleAudioStreamSubscription?.cancel();
-    _bleAudioStreamSubscription = _bleAudioStreamController.stream.listen((bleAudioClip) {
+    _bleAudioStreamSubscription = _bleAudioStreamController.stream.listen((
+      bleAudioClip,
+    ) {
       dev.log('Process start!!');
       _processAudioData(bleAudioClip);
     });
@@ -496,7 +556,8 @@ class RecordServiceHandler extends TaskHandler {
       }
       _boneDataReceivedTimestamp = currentTime;
     } else {
-      if (_isBoneConductionActive && currentTime - _boneDataReceivedTimestamp > 2000) {
+      if (_isBoneConductionActive &&
+          currentTime - _boneDataReceivedTimestamp > 2000) {
         _isBoneConductionActive = false;
       }
     }
@@ -511,7 +572,6 @@ class RecordServiceHandler extends TaskHandler {
           _startMeetingTime = currentTime;
           _inDialogMode = false;
           _feStartTime = null;
-          // 聊天模式变化时重新加载ASR配置
           await _loadUserAsrModeConfig();
           FlutterForegroundTask.sendDataToMain({'isMeeting': true});
           // IsolateTts.interrupt();
@@ -539,7 +599,6 @@ class RecordServiceHandler extends TaskHandler {
         if (currentTime - _ffStartTime! > 10000) {
           _isMeeting = false;
           _ffStartTime = null;
-          // 聊天模式变化时重新加载ASR配置
           await _loadUserAsrModeConfig();
           FlutterForegroundTask.sendDataToMain({'isMeeting': false});
           FlutterForegroundTask.sendDataToMain({
@@ -585,16 +644,23 @@ class RecordServiceHandler extends TaskHandler {
   void _decodeAndProcessOpusPackage(Uint8List value) async {
     Uint8List micPart = value.sublist(0, 40);
     Uint8List spkPart = value.sublist(40, 80);
-    bool micPartNoneZero = micPart.reduce((value, element) => value + element.abs()) > 0;
-    bool spkPartNoneZero = spkPart.reduce((value, element) => value + element.abs()) > 0;
+    bool micPartNoneZero =
+        micPart.reduce((value, element) => value + element.abs()) > 0;
+    bool spkPartNoneZero =
+        spkPart.reduce((value, element) => value + element.abs()) > 0;
     if (!micPartNoneZero && !spkPartNoneZero) {
       return;
     }
-    Int16List micClip = micPartNoneZero ? opusDecoder.decode(input: micPart) : Int16List(0);
-    Int16List spkClip = spkPartNoneZero ? opusDecoder.decode(input: spkPart) : Int16List(0);
+    Int16List micClip = micPartNoneZero
+        ? opusDecoder.decode(input: micPart)
+        : Int16List(0);
+    Int16List spkClip = spkPartNoneZero
+        ? opusDecoder.decode(input: spkPart)
+        : Int16List(0);
     for (var i = 0; i < max(micClip.length, spkClip.length); i++) {
       combinedOpusAudio.add(
-          (i < micClip.length ? micClip[i] : 0) + (i < spkClip.length ? spkClip[i] : 0)
+        (i < micClip.length ? micClip[i] : 0) +
+            (i < spkClip.length ? spkClip[i] : 0),
       );
     }
     if (combinedOpusAudio.length > 1000) {
@@ -610,7 +676,71 @@ class RecordServiceHandler extends TaskHandler {
 
   Future<void> _initTts() async {
     _flutterTts = FlutterTts();
+    _flutterTts.setStartHandler(() {
+      _isTtsSpeaking = true;
+    });
+    _flutterTts.setCompletionHandler(() {
+      _isTtsSpeaking = false;
+    });
+    _flutterTts.setCancelHandler(() {
+      _isTtsSpeaking = false;
+    });
+    _flutterTts.setErrorHandler((_) {
+      _isTtsSpeaking = false;
+    });
+
     await _flutterTts.awaitSpeakCompletion(true);
+
+    if (Platform.isAndroid) {
+      try {
+        final engines = await _flutterTts.getEngines;
+        final preferred = engines
+            .map((e) => e.toString())
+            .firstWhere(
+              (e) => e.toLowerCase().contains('google'),
+              orElse: () => '',
+            );
+        if (preferred.isNotEmpty) {
+          await _flutterTts.setEngine(preferred);
+        }
+      } catch (e) {
+        dev.log('TTS engine select failed: $e');
+      }
+    }
+
+    try {
+      final langs = await _flutterTts.getLanguages;
+      String? selectedLanguage;
+      for (final item in langs) {
+        final lang = item.toString();
+        final normalized = lang.toLowerCase();
+        if (normalized == 'en-us' || normalized.startsWith('en-us-')) {
+          selectedLanguage = lang;
+          break;
+        }
+        if (selectedLanguage == null && normalized.startsWith('en')) {
+          selectedLanguage = lang;
+        }
+      }
+      await _flutterTts.setLanguage(selectedLanguage ?? 'en-US');
+    } catch (e) {
+      dev.log('TTS language select failed: $e');
+      await _flutterTts.setLanguage('en-US');
+    }
+
+    try {
+      final voices = await _flutterTts.getVoices;
+      final bestVoice = _pickBestEnglishVoice(voices);
+      if (bestVoice != null) {
+        await _flutterTts.setVoice(bestVoice);
+      }
+    } catch (e) {
+      dev.log('TTS voice select failed: $e');
+    }
+
+    await _flutterTts.setSpeechRate(0.53);
+    await _flutterTts.setPitch(1.03);
+    await _flutterTts.setVolume(1.0);
     if (Platform.isAndroid) {
       await _flutterTts.setQueueMode(1);
     }
@@ -641,12 +771,17 @@ class RecordServiceHandler extends TaskHandler {
       _startMicrophone();
     }
 
+    FlutterForegroundTask.sendDataToMain({
+      'connectionState':
+          BleService().connectionState == BluetoothConnectionState.connected,
+    });
+
     FlutterForegroundTask.saveData(key: 'isRecording', value: true);
     // create stop action button
     FlutterForegroundTask.updateService(
       notificationText: 'Recording...',
       notificationButtons: [
-        const NotificationButton(id: Constants.actionStopRecord, text: 'stop'),
+        const NotificationButton(id: Constants.actionStopRecord, text: 'Stop'),
       ],
     );
   }
@@ -668,35 +803,33 @@ class RecordServiceHandler extends TaskHandler {
   }
 
   void onASRResult(String data, bool isFinish) {
-    if (data.isNotEmpty) {
+    final text = _sanitizeAsrText(data);
+    if (text.isEmpty) {
+      return;
+    }
+
+    if (_shouldInterruptTts(text, isFinish)) {
+      _currentChatSubscription?.cancel();
+      _currentChatSubscription = null;
+      _isProcessingChat = false;
       _flutterTts.stop();
     }
+
     if (isFinish) {
       final operationId = Uuid().v1();
-      final text = data
-          .replaceFirst('Buddy', 'Buddie')
-          .replaceFirst('buddy', 'buddie')
-          .replaceFirst('body', 'buddie');
       _processFinalAsrResult(text, operationId);
     } else {
-      final text = data
-          .replaceFirst('Buddy', 'Buddie')
-          .replaceFirst('buddy', 'buddie')
-          .replaceFirst('body', 'buddie');
       _processIntermediateAsrResult(text);
     }
   }
 
-  // 处理ASR中间结果（打字机效果）
   void _processIntermediateAsrResult(String text) {
     if (text.isEmpty) return;
 
-    // 如果没有当前消息ID，创建新的
     if (_currentAsrMessageId == null) {
       _currentAsrMessageId = Uuid().v4();
     }
 
-    // 发送ASR流数据
     FlutterForegroundTask.sendDataToMain({
       'asrMessageId': _currentAsrMessageId,
       'asrText': text,
@@ -709,7 +842,6 @@ class RecordServiceHandler extends TaskHandler {
     });
   }
 
-  // 处理ASR最终结果
   void _processFinalAsrResult(String text, String? operationId) {
     if (text.isEmpty) return;
 
@@ -722,7 +854,6 @@ class RecordServiceHandler extends TaskHandler {
       return;
     }
 
-    // 发送最终ASR数据
     if (_currentAsrMessageId != null) {
       FlutterForegroundTask.sendDataToMain({
         'asrMessageId': _currentAsrMessageId,
@@ -735,15 +866,12 @@ class RecordServiceHandler extends TaskHandler {
         'isVadDetected': false,
       });
 
-      // 重置状态
       _currentAsrMessageId = null;
     }
 
-    // 直接调用后续处理逻辑，不使用_processFinalResult避免重复
     _handlePostAsrProcessing(text, operationId);
   }
 
-  // 处理ASR后续逻辑（从_processFinalResult中提取出来）
   void _handlePostAsrProcessing(String text, String? operationId) {
     if (!_inDialogMode &&
         (wakeword_constants.wakeWordStartDialog.any(
@@ -843,7 +971,6 @@ class RecordServiceHandler extends TaskHandler {
     if (!_onRecording) return;
 
     if (_shouldUseStreamingAsr) {
-      // 流式ASR模式：直接推送到云端流式处理（会议模式）
       _cloudAsr.pushStreamData(data);
       return;
     }
@@ -870,15 +997,6 @@ class RecordServiceHandler extends TaskHandler {
       }
     }
 
-    if (_vad!.isDetected() &&
-        _isBoneConductionActive &&
-        _inDialogMode &&
-        !_isProcessingChat) {
-      _currentChatSubscription?.cancel();
-      _isProcessingChat = false;
-      _flutterTts.stop();
-    }
-
     if (_vad!.isDetected()) {
       FlutterForegroundTask.sendDataToMain({'isVadDetected': true});
     } else {
@@ -898,16 +1016,11 @@ class RecordServiceHandler extends TaskHandler {
       Float32List paddedSamples = await _addSilencePadding(samples);
       var segment = '';
 
-      // 根据当前ASR模式选择识别方式
       if (_isUsingCloudServices) {
-        // 云端ASR模式（对话模式）
-        dev.log('使用云端ASR: ${_currentAsrMode.name}');
+        dev.log('Using cloud ASR: ${_currentAsrMode.name}');
         segment = await _cloudAsr.recognize(paddedSamples);
       } else {
-        // 本地离线ASR模式（默认模式）
-        dev.log('使用本地ASR: ${_currentAsrMode.name}');
-
-        // 检查是否需要为qwenOmni保存音频
+        dev.log('Using local ASR: ${_currentAsrMode.name}');
 
         segment = await _asrServiceIsolate.sendData(paddedSamples);
       }
@@ -936,7 +1049,6 @@ class RecordServiceHandler extends TaskHandler {
   void _processIntermediateResult(String text) {
     if (text.isEmpty) return;
 
-    // 使用ASR流格式，与onASRResult保持一致
     if (_currentAsrMessageId == null) {
       _currentAsrMessageId = Uuid().v4();
     }
@@ -972,7 +1084,6 @@ class RecordServiceHandler extends TaskHandler {
       return;
     }
 
-    // 如果有ASR消息ID，发送最终的ASR流数据
     if (_currentAsrMessageId != null && speaker == 'user') {
       FlutterForegroundTask.sendDataToMain({
         'asrMessageId': _currentAsrMessageId,
@@ -984,10 +1095,8 @@ class RecordServiceHandler extends TaskHandler {
         'speaker': speaker,
       });
 
-      // 重置ASR状态
       _currentAsrMessageId = null;
     } else {
-      // 发送普通消息（非ASR流消息）
       FlutterForegroundTask.sendDataToMain({
         'text': text,
         'isEndpoint': true,
@@ -1007,7 +1116,6 @@ class RecordServiceHandler extends TaskHandler {
       _kwsJustListen = false;
       if (!_isMeeting && _budUser) {
         _inDialogMode = true;
-        // 聊天模式变化时重新加载ASR配置（异步执行，不阻塞当前流程）
         _loadUserAsrModeConfig();
         AudioPlayer().play(AssetSource('audios/interruption.wav'));
       } else {
@@ -1070,13 +1178,11 @@ class RecordServiceHandler extends TaskHandler {
             _inDialogMode = false;
             _kwsJustListen = false;
             _kwsBuddie = false;
-            // 聊天模式变化时重新加载ASR配置（异步执行，不阻塞当前流程）
             _loadUserAsrModeConfig();
             _vad!.clear();
             _flutterTts.stop();
             AudioPlayer().play(AssetSource('audios/beep.wav'));
           } else {
-            // 只有在不是结束对话时才启动聊天流
             _startChatStreamingRequest(text, lastAsrAudioData);
           }
         } else {
@@ -1089,94 +1195,129 @@ class RecordServiceHandler extends TaskHandler {
     }
   }
 
-  // 新增：独立的聊天流请求处理方法
+  // Start one streaming request at a time and speak the final assistant answer.
   void _startChatStreamingRequest(String text, Float32List? lastAsrAudioData) {
-    // 如果已经在处理聊天，不要重复启动
     if (_isProcessingChat) {
       return;
     }
 
-    // 取消之前的订阅
     _currentChatSubscription?.cancel();
     _currentChatSubscription = null;
-
     _isProcessingChat = true;
+    final assistantBuffer = StringBuffer();
+    var finalized = false;
+
     try {
-      if (_unifiedChatManager.getCurrentLLMType() == LLMType.qwenOmni) {
-        // 将 Float32List 转换为 Uint8List (16位PCM格式)
-        final audioBytes = lastAsrAudioData != null
-            ? _convertFloat32ToUint8List(lastAsrAudioData)
-            : null;
-        _currentChatSubscription = _unifiedChatManager
-            .createStreamingRequestWithAudio(
-              audioData: audioBytes,
+      final isQwenOmni =
+          _unifiedChatManager.getCurrentLLMType() == LLMType.qwenOmni;
+
+      final stream = isQwenOmni
+          ? _unifiedChatManager.createStreamingRequestWithAudio(
+              audioData: lastAsrAudioData != null
+                  ? _convertFloat32ToUint8List(lastAsrAudioData)
+                  : null,
               userMessage: text,
             )
-            .listen(
-              (response) {
-                final res = jsonDecode(response);
-                final content = res['content'] ?? res['delta'];
-                final isFinished = res['isFinished'];
+          : _unifiedChatManager.createStreamingRequest(text: text);
 
-                FlutterForegroundTask.sendDataToMain({
-                  'currentText': text,
-                  'isFinished': false,
-                  'content': res['delta'],
-                });
+      _currentChatSubscription = stream.listen(
+        (response) async {
+          final parsed = _parseChatStreamResponse(response);
+          if (parsed == null) return;
 
-                if (isFinished) {
-                  _objectBoxService.insertDialogueRecord(
-                    RecordEntity(role: 'assistant', content: content),
-                  );
-                  _unifiedChatManager.addChatSession('assistant', content);
-                  _isProcessingChat = false; // 处理完成，重置状态
-                }
-              },
-              onError: (error) {
-                dev.log('Chat streaming error: $error');
-                _isProcessingChat = false; // 出错时重置状态
-              },
-              onDone: () {
-                _isProcessingChat = false; // 流结束时重置状态
-              },
-            );
-      } else {
-        _currentChatSubscription = _unifiedChatManager
-            .createStreamingRequest(text: text)
-            .listen(
-              (response) {
-                final res = jsonDecode(response);
-                final content = res['content'] ?? res['delta'];
-                final isFinished = res['isFinished'];
+          if (parsed.deltaText.isNotEmpty) {
+            assistantBuffer.write(parsed.deltaText);
+          }
 
-                FlutterForegroundTask.sendDataToMain({
-                  'currentText': text,
-                  'isFinished': false,
-                  'content': res['delta'],
-                });
+          FlutterForegroundTask.sendDataToMain({
+            'currentText': text,
+            'isFinished': parsed.isFinished,
+            'content': parsed.deltaText.isNotEmpty
+                ? parsed.deltaText
+                : parsed.content,
+          });
 
-                _flutterTts.speak(res['delta']);
+          if (!parsed.isFinished || finalized) {
+            return;
+          }
 
-                if (isFinished) {
-                  _objectBoxService.insertDialogueRecord(
-                    RecordEntity(role: 'assistant', content: content),
-                  );
-                  _unifiedChatManager.addChatSession('assistant', content);
-                  _isProcessingChat = false; // 处理完成，重置状态
-                }
-              },
-              onError: (error) {
-                dev.log('Chat streaming error: $error');
-                _isProcessingChat = false; // 出错时重置状态
-              },
-              onDone: () {
-                _isProcessingChat = false; // 流结束时重置状态
-              },
-            );
-      }
+          finalized = true;
+          final finalContent = parsed.content.isNotEmpty
+              ? parsed.content
+              : assistantBuffer.toString();
+          await _finalizeAssistantReply(finalContent);
+          _isProcessingChat = false;
+        },
+        onError: (error) {
+          dev.log('Chat streaming error: $error');
+          _isProcessingChat = false;
+        },
+        onDone: () {
+          if (!finalized) {
+            finalized = true;
+            final fallbackContent = assistantBuffer.toString();
+            if (fallbackContent.trim().isNotEmpty) {
+              _finalizeAssistantReply(fallbackContent);
+            }
+          }
+          _isProcessingChat = false;
+        },
+      );
     } catch (e) {
       dev.log('Failed to start chat streaming: $e');
       _isProcessingChat = false;
+    }
+  }
+
+  ({String deltaText, String content, bool isFinished})?
+  _parseChatStreamResponse(String response) {
+    try {
+      final res = jsonDecode(response) as Map<String, dynamic>;
+      final deltaText = (res['delta'] ?? '').toString();
+      final content = (res['content'] ?? deltaText).toString();
+      final isFinished = _isFinishedFlag(res['isFinished']);
+      return (deltaText: deltaText, content: content, isFinished: isFinished);
+    } catch (e) {
+      dev.log('Chat stream parse error: $e');
+      return null;
+    }
+  }
+
+  bool _isFinishedFlag(dynamic rawValue) {
+    if (rawValue is bool) return rawValue;
+    if (rawValue is num) return rawValue != 0;
+    final normalized = rawValue?.toString().toLowerCase().trim();
+    return normalized == 'true' || normalized == '1' || normalized == 'yes';
+  }
+
+  Future<void> _finalizeAssistantReply(String content) async {
+    final finalContent = content.trim();
+    if (finalContent.isEmpty) {
+      return;
+    }
+
+    _objectBoxService.insertDialogueRecord(
+      RecordEntity(role: 'assistant', content: finalContent),
+    );
+    _unifiedChatManager.addChatSession('assistant', finalContent);
+    await _speakAssistantReply(finalContent);
+  }
+
+  Future<void> _speakAssistantReply(String content) async {
+    if (_isMeeting) {
+      return;
+    }
+
+    final text = _prepareTextForSpeech(content);
+    if (text.isEmpty) {
+      return;
+    }
+
+    try {
+      await _flutterTts.stop();
+      await _flutterTts.speak(text);
+    } catch (e) {
+      dev.log('TTS playback error: $e');
     }
   }
 
@@ -1188,12 +1329,11 @@ class RecordServiceHandler extends TaskHandler {
     }
 
     _recordSub?.cancel();
-    _currentChatSubscription?.cancel(); // 修改：使用新的订阅变量名
+    _currentChatSubscription?.cancel();
     _vad?.free();
     _asrServiceIsolate.stopRecord();
     _cloudAsr.stopStream();
 
-    // 重置状态
     _isProcessingChat = false;
     _currentAsrMessageId = null;
 

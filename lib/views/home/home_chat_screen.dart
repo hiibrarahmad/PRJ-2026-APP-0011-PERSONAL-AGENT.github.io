@@ -1,36 +1,4 @@
-/// 主聊天界面组件
-///
-/// 实现应用核心聊天功能的关键界面，主要特性包括：
-/// 1. 聊天交互系统：
-///   - 支持文本/语音输入
-///   - 消息历史分页加载
-///   - 实时消息流处理
-/// 2. 设备集成：
-///   - 蓝牙设备连接状态显示
-///   - 录音控制集成
-///   - 前台服务管理
-///
-/// 核心交互流程：
-/// 1. 初始化阶段：
-///   - 加载控制器（ChatController/RecordScreenController）
-///   - 检查首次启动显示欢迎消息
-///   - 启动录音服务
-/// 2. 运行阶段：
-///   - 处理消息发送/接收
-///   - 同步蓝牙/录音状态
-/// 3. 导航功能：
-///   - 跳转会议列表
-///   - 显示蓝牙配对面板
-///   - 帮助功能
-///
-/// 使用示例：
-/// ```dart
-/// // 简单初始化
-/// const HomeChatScreen();
-///
-/// // 带自定义录音控制器
-/// HomeChatScreen(controller: customRecordController);
-/// ```
+/// Main home chat screen for conversation, Bluetooth status, and meeting access.
 
 import 'dart:io';
 
@@ -53,6 +21,7 @@ import 'package:visibility_detector/visibility_detector.dart';
 
 import '../../controllers/chat_controller.dart';
 import '../../controllers/record_controller.dart';
+import '../../services/headset_status_service.dart';
 import '../../utils/assets_util.dart';
 import '../ble/ble_screen.dart';
 
@@ -92,6 +61,9 @@ class _HomeChatScreenState extends State<HomeChatScreen>
   List<BluetoothDevice> pairedDevices = [];
   bool _paired = false;
   bool _isBottomSheetShown = false;
+  bool _hasShownHeadsetPrompt = false;
+  bool _systemHeadsetConnected = false;
+  String? _systemHeadsetName;
 
   @override
   void initState() {
@@ -121,7 +93,7 @@ class _HomeChatScreenState extends State<HomeChatScreen>
   void didChangeAppLifecycleState(AppLifecycleState state) {
     super.didChangeAppLifecycleState(state);
     if (state == AppLifecycleState.resumed) {
-      // No longer needed without authentication
+      _refreshHeadsetStateSilently();
     }
   }
 
@@ -189,6 +161,10 @@ class _HomeChatScreenState extends State<HomeChatScreen>
         debugPrint('start recording');
       }
       FlutterForegroundTask.sendDataToTask('startRecording');
+      if (!_hasShownHeadsetPrompt && mounted) {
+        _hasShownHeadsetPrompt = true;
+        await _showHeadsetConfirmationPrompt();
+      }
     });
   }
 
@@ -303,6 +279,7 @@ class _HomeChatScreenState extends State<HomeChatScreen>
   }
 
   void _onClickBluetooth() async {
+    await _showHeadsetConfirmationPrompt();
     await _getPairedDevices();
     final remoteId = await FlutterForegroundTask.getData(key: 'deviceRemoteId');
     final deviceName = await FlutterForegroundTask.getData(key: 'deviceName');
@@ -333,6 +310,129 @@ class _HomeChatScreenState extends State<HomeChatScreen>
         _isBottomSheetShown = false;
       });
     });
+  }
+
+  Future<({bool connected, String? name, String detail})>
+  _getSystemHeadsetStatus() async {
+    final nativeStatus = await HeadsetStatusService.getStatus();
+    if (nativeStatus != null) {
+      if (nativeStatus.connected) {
+        return (
+          connected: true,
+          name: nativeStatus.name,
+          detail: nativeStatus.routedToBluetooth
+              ? 'Audio route is on Bluetooth.'
+              : 'Bluetooth profile is connected.',
+        );
+      }
+
+      if (!nativeStatus.bluetoothEnabled) {
+        return (
+          connected: false,
+          name: null,
+          detail: 'Bluetooth is off in phone settings.',
+        );
+      }
+    }
+
+    try {
+      var connectedDevices = FlutterBluePlus.connectedDevices;
+      if (connectedDevices.isEmpty) {
+        connectedDevices = await FlutterBluePlus.systemDevices([Guid("1800")]);
+      }
+
+      if (connectedDevices.isNotEmpty) {
+        final device = connectedDevices.first;
+        final name = device.platformName.isNotEmpty
+            ? device.platformName
+            : device.remoteId.str;
+        return (
+          connected: true,
+          name: name,
+          detail: 'Detected by Bluetooth stack.',
+        );
+      }
+    } catch (_) {
+      // Best effort only; fallback to service state below.
+    }
+
+    if (_audioController.connectionState ==
+        BluetoothConnectionState.connected) {
+      return (
+        connected: true,
+        name: _audioController.deviceName,
+        detail: 'Connected inside app service.',
+      );
+    }
+
+    return (
+      connected: false,
+      name: null,
+      detail: 'No Bluetooth headset is currently connected.',
+    );
+  }
+
+  Future<void> _showHeadsetConfirmationPrompt() async {
+    final status = await _getSystemHeadsetStatus();
+    if (!mounted) return;
+
+    final name = status.name?.trim();
+    final hasReadableName =
+        name != null &&
+        name.isNotEmpty &&
+        name.toLowerCase() != 'unknown device';
+    setState(() {
+      _systemHeadsetConnected = status.connected;
+      _systemHeadsetName = hasReadableName ? name : null;
+    });
+
+    final title = status.connected
+        ? 'Headset connected'
+        : 'Headset not connected';
+    final message = status.connected
+        ? hasReadableName
+              ? 'Detected Bluetooth headset: $name'
+              : 'Bluetooth headset is connected, but the device name is hidden by the phone or earbud firmware.'
+        : status.detail;
+
+    await showDialog<void>(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: Text(title),
+          content: Text(message),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text('OK'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  Future<void> _refreshHeadsetStateSilently() async {
+    final status = await _getSystemHeadsetStatus();
+    if (!mounted) return;
+    final name = status.name?.trim();
+    final hasReadableName =
+        name != null &&
+        name.isNotEmpty &&
+        name.toLowerCase() != 'unknown device';
+    setState(() {
+      _systemHeadsetConnected = status.connected;
+      _systemHeadsetName = hasReadableName ? name : null;
+    });
+  }
+
+  BluetoothConnectionState _effectiveBluetoothState() {
+    if (_audioController.connectionState ==
+            BluetoothConnectionState.connected ||
+        _systemHeadsetConnected) {
+      return BluetoothConnectionState.connected;
+    }
+    return BluetoothConnectionState.disconnected;
   }
 
   void _onClickRecord() {
@@ -399,7 +499,7 @@ class _HomeChatScreenState extends State<HomeChatScreen>
                 Padding(
                   padding: EdgeInsets.symmetric(vertical: 8.sp),
                   child: HomeAppBar(
-                    bluetoothConnected: _audioController.connectionState,
+                    bluetoothConnected: _effectiveBluetoothState(),
                     onTapBluetooth: _onClickBluetooth,
                   ),
                 ),

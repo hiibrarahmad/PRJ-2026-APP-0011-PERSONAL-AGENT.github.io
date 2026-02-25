@@ -50,7 +50,7 @@
         android:name="${applicationName}"
         android:enableOnBackInvokedCallback="true"
         android:icon="@mipmap/ic_launcher"
-        android:label="I.A PERSONAL AGENT"
+        android:label="I.A agent"
         tools:replace="android:label, android:icon">
         <activity
             android:name=".MainActivity"

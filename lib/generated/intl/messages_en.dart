@@ -36,7 +36,7 @@ class MessageLookup extends MessageLookupByLibrary {
   final messages = _notInlinedMessages(_notInlinedMessages);
   static Map<String, Function> _notInlinedMessages(_) => <String, Function>{
     "ScanningBuddie": MessageLookupByLibrary.simpleMessage(
-      "Scanning earbuds...",
+      "Checking Bluetooth headset...",
     ),
     "aiDialogModel": MessageLookupByLibrary.simpleMessage("AI dialogue model"),
     "aiDialogModelCustomLLMDescription": MessageLookupByLibrary.simpleMessage(
@@ -111,7 +111,7 @@ class MessageLookup extends MessageLookupByLibrary {
     "aliyunAPIKeyManageTitle": MessageLookupByLibrary.simpleMessage(
       "Aliyun API Key Management",
     ),
-    "appName": MessageLookupByLibrary.simpleMessage("I.A PERSONAL AGENT"),
+    "appName": MessageLookupByLibrary.simpleMessage("I.A agent"),
     "asrModeCloudOnlineDescription": MessageLookupByLibrary.simpleMessage(
       "Short audio recognition",
     ),
@@ -223,7 +223,7 @@ class MessageLookup extends MessageLookupByLibrary {
     "pageAboutPrivacyPolicy": MessageLookupByLibrary.simpleMessage(
       "Privacy Policy",
     ),
-    "pageAboutTitle": MessageLookupByLibrary.simpleMessage("About I.A PERSONAL AGENT"),
+    "pageAboutTitle": MessageLookupByLibrary.simpleMessage("About I.A agent"),
     "pageAboutUserAgreement": MessageLookupByLibrary.simpleMessage(
       "User Agreement",
     ),
@@ -271,7 +271,7 @@ class MessageLookup extends MessageLookupByLibrary {
       "Unknown model",
     ),
     "pageSettingAboutSubtitle": MessageLookupByLibrary.simpleMessage(
-      "Learn more about I.A PERSONAL AGENT",
+      "Learn more about I.A agent",
     ),
     "pageSettingAboutTitle": MessageLookupByLibrary.simpleMessage("About"),
     "pageSettingDarkMode": MessageLookupByLibrary.simpleMessage("Dark Mode"),
@@ -296,7 +296,7 @@ class MessageLookup extends MessageLookupByLibrary {
     "pageWelcomeText1": MessageLookupByLibrary.simpleMessage(
       "Thank you \nfor choosing ",
     ),
-    "pageWelcomeText2": MessageLookupByLibrary.simpleMessage("I.A PERSONAL AGENT!"),
+    "pageWelcomeText2": MessageLookupByLibrary.simpleMessage("I.A agent!"),
     "pageWelcomeText3": MessageLookupByLibrary.simpleMessage(
       "Discover recording, \nchatting, and journaling \nfeatures.",
     ),

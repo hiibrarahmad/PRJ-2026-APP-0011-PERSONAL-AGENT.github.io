@@ -1,4 +1,5 @@
 import 'package:app/controllers/style_controller.dart';
+import 'package:app/constants/theme_constants.dart';
 import 'package:app/utils/assets_util.dart';
 import 'package:app/views/home/components/chat_container.dart';
 import 'package:app/views/ui/bud_icon.dart';
@@ -74,10 +75,10 @@ class ChatListTile extends StatelessWidget {
                 text,
                 style: textStyle.copyWith(
                   color: isLightMode
-                      ? const Color(0xFF383838)
+                      ? const Color(0xFF1D1F23)
                       : isUser
-                      ? const Color(0xE6FFFFFF)
-                      : const Color(0xB3FFFFFF),
+                      ? ThemeConstants.text
+                      : ThemeConstants.text.withAlpha(220),
                 ),
               ),
             ),

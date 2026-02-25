@@ -29,6 +29,7 @@ class BLEScreen extends StatefulWidget {
 
 class _BLEScreenState extends State<BLEScreen> {
   List<BluetoothDevice> pairedDevices = [];
+  List<BluetoothDevice> systemConnectedDevices = [];
   List<ScanResult> _devices = [];
   bool _isScanning = false;
   late bool _paired;
@@ -47,9 +48,7 @@ class _BLEScreenState extends State<BLEScreen> {
     if (!_paired) {
       _isScanning = false;
     } else {
-      getPairedDevices();
-      // Start to scan
-      startScanning();
+      _bootstrapDevices();
     }
   }
 
@@ -59,7 +58,31 @@ class _BLEScreenState extends State<BLEScreen> {
     super.dispose();
   }
 
-  void getPairedDevices() async {
+  Future<void> _bootstrapDevices() async {
+    await getPairedDevices();
+    await _loadSystemConnectedDevices();
+    if (mounted && _remoteId == null) {
+      startScanning();
+    }
+  }
+
+  Future<void> _loadSystemConnectedDevices() async {
+    try {
+      var connected = FlutterBluePlus.connectedDevices;
+      if (connected.isEmpty) {
+        connected = await FlutterBluePlus.systemDevices([Guid("1800")]);
+      }
+
+      if (!mounted) return;
+      setState(() {
+        systemConnectedDevices = connected;
+      });
+    } catch (_) {
+      // Ignore unsupported queries and continue with scan flow.
+    }
+  }
+
+  Future<void> getPairedDevices() async {
     if (Platform.isIOS) {
       // List<Guid> withServices = [
       //   // Guid("00001108-0000-1000-8000-00805f9b34fb"), // UUID
@@ -146,6 +169,18 @@ class _BLEScreenState extends State<BLEScreen> {
         });
       },
     );
+
+    Future.delayed(const Duration(seconds: 8), () async {
+      if (!mounted || !_isScanning) return;
+      await FlutterBluePlus.stopScan();
+      await _subscription?.cancel();
+      setState(() {
+        _isScanning = false;
+        _statusMessage = _devices.isEmpty
+            ? 'No paired headset detected. Connect from phone Bluetooth settings and retry.'
+            : 'Scan completed!';
+      });
+    });
   }
 
   Future<bool> startConnecting(ScanResult result) async {
@@ -187,6 +222,30 @@ class _BLEScreenState extends State<BLEScreen> {
     if (_remoteId == null) {
       return Stack(
         children: [
+          if (systemConnectedDevices.isNotEmpty)
+            DeviceCard(
+              deviceName: systemConnectedDevices.first.platformName.isNotEmpty
+                  ? systemConnectedDevices.first.platformName
+                  : systemConnectedDevices.first.remoteId.str,
+              text: 'Use currently connected headset?',
+              onConfirm: () async {
+                final current = systemConnectedDevices.first;
+                final fallbackName = current.platformName.isNotEmpty
+                    ? current.platformName
+                    : current.remoteId.str;
+                final success = await startConnectingByRemoteId(
+                  current.remoteId.str,
+                  fallbackName,
+                );
+                Navigator.pop(context);
+                if (success) {
+                  context.showToast(S.of(context).pageBleToastConnectSuccess);
+                } else {
+                  context.showToast(S.of(context).pageBleToastConnectFailed);
+                }
+              },
+              onCancel: () => Navigator.pop(context),
+            ),
           if (_devices.isNotEmpty)
             DeviceCard(
               deviceName: getDeviceName(_devices[0]),
