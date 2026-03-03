@@ -16,60 +16,64 @@ class BudShadowButton extends StatelessWidget {
   Widget build(BuildContext context) {
     final themeNotifier = Provider.of<ThemeNotifier>(context);
     bool isLightMode = themeNotifier.mode == Mode.light;
-    return InkWell(
-      splashColor: Colors.transparent,
-      highlightColor: Colors.transparent,
-      onTap: onTap,
-      child: Container(
-        decoration: BoxDecoration(
-          shape: text == null ? BoxShape.circle : BoxShape.rectangle,
-          color: isLightMode ? const Color(0x99FFFFFF) : ThemeConstants.card,
-          borderRadius: text != null ? BorderRadius.circular(46) : null,
-          border: Border.all(
-            color: isLightMode
-                ? Colors.white.withAlpha(140)
-                : ThemeConstants.primaryDark.withAlpha(80),
-            width: 0.7,
-          ),
-          boxShadow: isLightMode
-              ? const [
-                  BoxShadow(
-                    color: Color.fromRGBO(198, 229, 255, 0.4),
-                    offset: Offset(0, 17),
-                    blurRadius: 29,
-                  ),
-                  // inset
-                  BoxShadow(
-                    color: Color.fromRGBO(255, 255, 255, 0.55),
-                    offset: Offset(-2, 2),
-                    blurRadius: 4,
-                  ),
-                ]
-              : null,
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 200),
+      decoration: BoxDecoration(
+        shape: text == null ? BoxShape.circle : BoxShape.rectangle,
+        borderRadius: text != null ? BorderRadius.circular(18.sp) : null,
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            ThemeConstants.panel.withAlpha(220),
+            ThemeConstants.panelElevated.withAlpha(220),
+          ],
         ),
-        padding: EdgeInsets.symmetric(horizontal: 14.sp, vertical: 12.sp),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            BudIcon(icon: icon, size: 22.sp),
-            if (text != null)
-              Padding(
-                padding: EdgeInsets.only(left: 6.sp),
-                child: Text(
-                  text!,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                    fontWeight: FontWeight.bold,
-                    fontSize: 16.sp,
-                    color: isLightMode
-                        ? const Color(0xFF333333)
-                        : ThemeConstants.text,
+        border: Border.all(
+          color: isLightMode
+              ? Colors.white.withAlpha(140)
+              : ThemeConstants.neonBlue.withAlpha(130),
+          width: 0.9,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: ThemeConstants.primary.withAlpha(40),
+            blurRadius: 14,
+            offset: const Offset(0, 6),
+          ),
+        ],
+      ),
+      child: InkWell(
+        splashColor: Colors.transparent,
+        highlightColor: Colors.transparent,
+        borderRadius: text != null ? BorderRadius.circular(18.sp) : null,
+        onTap: onTap,
+        child: Padding(
+          padding: EdgeInsets.symmetric(horizontal: 14.sp, vertical: 12.sp),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              BudIcon(icon: icon, size: 22.sp),
+              if (text != null)
+                Padding(
+                  padding: EdgeInsets.only(left: 8.sp),
+                  child: Text(
+                    text!,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      fontWeight: FontWeight.w700,
+                      fontSize: 14.sp,
+                      letterSpacing: 0.5,
+                      color: isLightMode
+                          ? const Color(0xFF333333)
+                          : ThemeConstants.text,
+                    ),
                   ),
                 ),
-              ),
-          ],
+            ],
+          ),
         ),
       ),
     );

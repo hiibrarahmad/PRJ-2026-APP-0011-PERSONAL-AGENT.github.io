@@ -19,10 +19,13 @@ import '../models/chat_mode.dart';
 import '../services/unified_chat_manager.dart';
 import '../services/base_llm.dart';
 import '../services/objectbox_service.dart';
+import '../services/personal_assistant_service.dart';
 
 class ChatController extends ChangeNotifier {
   late final UnifiedChatManager unifiedChatManager;
   late final UnifiedChatManager unifiedChatHelp;
+  final PersonalAssistantService _personalAssistantService =
+      PersonalAssistantService();
   final String helpMessage =
       'Based on historical information, I think the following may help you:\n\n';
   final ObjectBoxService _objectBoxService = ObjectBoxService();
@@ -49,6 +52,13 @@ class ChatController extends ChangeNotifier {
   final player.FlutterSoundPlayer _audioPlayer = player.FlutterSoundPlayer();
   final FlutterTts _uiTts = FlutterTts();
   bool _uiTtsReady = false;
+
+  void _traceUiTts(String message) {
+    final line = '[UI_TTS_TRACE] $message';
+    dev.log(line);
+    // print() guarantees visibility in `adb logcat` as I/flutter.
+    print(line);
+  }
 
   ChatController({required this.onNewMessage}) {
     _instances.add(this);
@@ -151,6 +161,7 @@ class ChatController extends ChangeNotifier {
               );
           if (preferred.isNotEmpty) {
             await _uiTts.setEngine(preferred);
+            _traceUiTts('engine=$preferred');
           }
         } catch (e) {
           dev.log('UI TTS engine select failed: $e');
@@ -174,12 +185,14 @@ class ChatController extends ChangeNotifier {
       }
       if (selectedLanguage != null) {
         await _uiTts.setLanguage(selectedLanguage);
+        _traceUiTts('language=$selectedLanguage');
       }
 
       final voices = await _uiTts.getVoices;
       final bestVoice = _pickBestEnglishVoice(voices);
       if (bestVoice != null) {
         await _uiTts.setVoice(bestVoice);
+        _traceUiTts('voice=${bestVoice['name']} locale=${bestVoice['locale']}');
       }
 
       // Slightly faster and brighter for a more conversational tone.
@@ -187,6 +200,7 @@ class ChatController extends ChangeNotifier {
       await _uiTts.setPitch(1.03);
       await _uiTts.setVolume(1.0);
       _uiTtsReady = true;
+      _traceUiTts('init done');
     } catch (e) {
       dev.log('UI TTS init failed: $e');
     }
@@ -235,7 +249,31 @@ class ChatController extends ChangeNotifier {
     text = text.replaceAll(RegExp(r'https?://\S+'), '');
     text = text.replaceAll(RegExp(r'[_*#`]+'), ' ');
     text = text.replaceAll('\n', '. ');
+    text = text.replaceAll(
+      RegExp(
+        r'[\u2E80-\u2EFF\u2F00-\u2FDF\u3040-\u30FF\u3100-\u312F\u31A0-\u31BF\u3400-\u4DBF\u4E00-\u9FFF\uF900-\uFAFF]',
+      ),
+      ' ',
+    );
+    text = text.replaceAll(RegExp(r'[^\x20-\x7E]'), ' ');
     text = text.replaceAll(RegExp(r'\s+'), ' ').trim();
+    return text;
+  }
+
+  String _sanitizeAssistantReply(String input) {
+    var text = input
+        .replaceAll(
+          RegExp(
+            r'[\u2E80-\u2EFF\u2F00-\u2FDF\u3040-\u30FF\u3100-\u312F\u31A0-\u31BF\u3400-\u4DBF\u4E00-\u9FFF\uF900-\uFAFF]',
+          ),
+          ' ',
+        )
+        .replaceAll(RegExp(r'[^\x20-\x7E]'), ' ')
+        .replaceAll(RegExp(r'\s+'), ' ')
+        .trim();
+    if (!RegExp(r'[A-Za-z]').hasMatch(text)) {
+      return 'Sorry, I can only respond in English right now.';
+    }
     return text;
   }
 
@@ -246,8 +284,10 @@ class ChatController extends ChangeNotifier {
       await _initUiTts();
     }
     try {
+      _traceUiTts('speak request textLen=${speakText.length}');
       await _uiTts.stop();
       await _uiTts.speak(speakText);
+      _traceUiTts('speak request submitted');
     } catch (e) {
       dev.log('UI TTS speak failed: $e');
     }
@@ -311,11 +351,13 @@ class ChatController extends ChangeNotifier {
 
     if (data is Map<String, dynamic>) {
       if (data['action'] == 'playAudio') {
+        _traceUiTts('playAudio from stream');
         _playAudio(data['data']);
         return;
       }
 
       if (data['action'] == 'stopAudio') {
+        _traceUiTts('stopAudio from stream');
         _stopAudio();
         return;
       }
@@ -513,6 +555,23 @@ class ChatController extends ChangeNotifier {
       );
       firstScrollToBottom();
 
+      final localCommandReply = await _personalAssistantService
+          .tryHandleCommand(text);
+      if (localCommandReply != null) {
+        insertNewMessage({
+          'id': const Uuid().v4(),
+          'text': localCommandReply,
+          'isUser': 'assistant',
+        });
+        _objectBoxService.insertDialogueRecord(
+          RecordEntity(role: 'assistant', content: localCommandReply),
+        );
+        unifiedChatManager.addChatSession('user', text);
+        unifiedChatManager.addChatSession('assistant', localCommandReply);
+        await _speakAssistantText(localCommandReply);
+        return;
+      }
+
       unifiedChatManager.addChatSession('user', text);
       await _getBotResponse(text);
     }
@@ -567,7 +626,13 @@ class ChatController extends ChangeNotifier {
         }
       }
 
-      updateMessageText(responseId, response, isFinal: true, isHelp: isHelp);
+      final englishResponse = _sanitizeAssistantReply(response);
+      updateMessageText(
+        responseId,
+        englishResponse,
+        isFinal: true,
+        isHelp: isHelp,
+      );
 
       if (isInBottom) {
         firstScrollToBottom();

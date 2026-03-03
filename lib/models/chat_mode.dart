@@ -71,11 +71,13 @@ extension ChatModeExtension on ChatMode {
   AsrMode get defaultAsrMode {
     switch (this) {
       case ChatMode.defaultMode:
-        return AsrMode.localOffline; // Transcription mode defaults to local recognition
+        return AsrMode
+            .cloudOnline; // Prefer cloud ASR for better English accuracy; falls back if unavailable
       case ChatMode.dialogMode:
         return AsrMode.cloudOnline; // Dialog mode defaults to cloud online ASR
       case ChatMode.meetingMode:
-        return AsrMode.cloudStreaming; // Meeting mode defaults to real-time speech recognition
+        return AsrMode
+            .cloudStreaming; // Meeting mode defaults to real-time speech recognition
     }
   }
 }

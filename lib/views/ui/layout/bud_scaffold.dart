@@ -1,4 +1,5 @@
 import 'package:app/controllers/style_controller.dart';
+import 'package:app/constants/theme_constants.dart';
 import 'package:app/utils/assets_util.dart';
 import 'package:app/views/ui/app_background.dart';
 import 'package:app/views/ui/bud_icon.dart';
@@ -53,10 +54,7 @@ class BudScaffold extends StatelessWidget {
                 onTap: () => context.pop(),
                 child: Padding(
                   padding: EdgeInsets.only(right: 4.sp),
-                  child: BudIcon(
-                    icon: AssetsUtil.icon_arrow_back,
-                    size: 20.sp,
-                  ),
+                  child: BudIcon(icon: AssetsUtil.icon_arrow_back, size: 20.sp),
                 ),
               ),
             if (leading != null)
@@ -65,14 +63,26 @@ class BudScaffold extends StatelessWidget {
                 child: leading!,
               ),
             if (title != null)
-              Text(
-                title!,
-                style: TextStyle(
-                  fontWeight: FontWeight.bold,
-                  fontSize: 18,
-                  color: isLightMode ? Colors.black : Colors.white,
+              Container(
+                padding: EdgeInsets.symmetric(
+                  horizontal: 10.sp,
+                  vertical: 6.sp,
                 ),
-              )
+                decoration: BoxDecoration(
+                  color: ThemeConstants.panel.withAlpha(188),
+                  borderRadius: BorderRadius.circular(12.sp),
+                  border: Border.all(color: ThemeConstants.outline),
+                ),
+                child: Text(
+                  title!,
+                  style: TextStyle(
+                    fontWeight: FontWeight.w700,
+                    fontSize: 16.sp,
+                    letterSpacing: 0.6,
+                    color: isLightMode ? Colors.black : Colors.white,
+                  ),
+                ),
+              ),
           ],
         ),
         actions: actions,

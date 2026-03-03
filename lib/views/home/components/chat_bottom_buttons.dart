@@ -27,7 +27,7 @@ class ChatBottomButtons extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return SizedBox(
-      height: height,
+      height: 54.sp,
       child: Row(
         mainAxisSize: MainAxisSize.min,
         mainAxisAlignment: MainAxisAlignment.center,
@@ -47,7 +47,7 @@ class ChatBottomButtons extends StatelessWidget {
                   : AssetsUtil.icon_btn_stop_recording_mic,
             ),
           ),
-          SizedBox(width: 22.sp),
+          SizedBox(width: 12.sp),
           Expanded(
             child: BudShadowButton(
               onTap: onTapHelp,
@@ -55,7 +55,7 @@ class ChatBottomButtons extends StatelessWidget {
               text: S.of(context).buttonHelpMe,
             ),
           ),
-          SizedBox(width: 22.sp),
+          SizedBox(width: 12.sp),
           BudShadowButton(onTap: onTapRight, icon: AssetsUtil.icon_btn_journal),
         ],
       ),

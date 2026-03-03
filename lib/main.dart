@@ -112,24 +112,52 @@ class MyApp extends StatelessWidget {
           cardColor: ThemeConstants.card,
           dividerColor: ThemeConstants.textSecondary.withAlpha(64),
           fontFamily: 'SourceHanSansCN',
+          splashFactory: NoSplash.splashFactory,
+          snackBarTheme: SnackBarThemeData(
+            backgroundColor: ThemeConstants.panelElevated.withAlpha(235),
+            contentTextStyle: const TextStyle(
+              color: ThemeConstants.text,
+              fontWeight: FontWeight.w600,
+            ),
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+              side: BorderSide(color: ThemeConstants.outline),
+            ),
+          ),
+          appBarTheme: const AppBarTheme(
+            backgroundColor: Colors.transparent,
+            foregroundColor: ThemeConstants.text,
+          ),
           textTheme: const TextTheme(
             displayLarge: TextStyle(
               fontSize: 34,
-              fontWeight: FontWeight.bold,
+              fontWeight: FontWeight.w700,
+              letterSpacing: 0.6,
               color: ThemeConstants.text,
             ),
             displayMedium: TextStyle(
               fontSize: 24,
-              fontWeight: FontWeight.w300,
+              fontWeight: FontWeight.w500,
+              letterSpacing: 0.4,
               color: ThemeConstants.text,
             ),
             displaySmall: TextStyle(
               fontSize: 16,
-              fontWeight: FontWeight.bold,
+              fontWeight: FontWeight.w700,
+              letterSpacing: 0.3,
               color: ThemeConstants.text,
             ),
-            bodyMedium: TextStyle(color: ThemeConstants.text),
-            bodySmall: TextStyle(color: ThemeConstants.textSecondary),
+            bodyMedium: TextStyle(
+              color: ThemeConstants.text,
+              fontWeight: FontWeight.w500,
+              letterSpacing: 0.15,
+            ),
+            bodySmall: TextStyle(
+              color: ThemeConstants.textSecondary,
+              fontWeight: FontWeight.w500,
+              letterSpacing: 0.15,
+            ),
           ),
         ),
         debugShowCheckedModeBanner: false,

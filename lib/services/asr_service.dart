@@ -115,9 +115,13 @@ class RecordServiceHandler extends TaskHandler {
       dev.log(
         'Loaded user ASR mode: ${_cachedUserAsrMode?.name ?? "default"}, chat mode: ${chatMode.name}',
       );
+      _traceTts(
+        'asrMode loaded=${_cachedUserAsrMode?.storageKey ?? "default"} chatMode=${chatMode.name}',
+      );
     } catch (e) {
       dev.log('Failed to load user ASR mode: $e');
       _cachedUserAsrMode = null;
+      _traceTts('asrMode load failed; using default=${_currentChatMode.name}');
     }
   }
 
@@ -170,6 +174,7 @@ class RecordServiceHandler extends TaskHandler {
 
   bool _onMicrophone = false;
   var operationId;
+  int _replyGraceUntilMs = 0;
 
   final AsrServiceIsolate _asrServiceIsolate = AsrServiceIsolate();
 
@@ -183,6 +188,16 @@ class RecordServiceHandler extends TaskHandler {
   bool _isProcessingChat = false;
   static final RegExp _cjkCharacters = RegExp(r'[\u4E00-\u9FFF]');
   bool _isTtsSpeaking = false;
+  static final RegExp _eastAsianCharacters = RegExp(
+    r'[\u2E80-\u2EFF\u2F00-\u2FDF\u3040-\u30FF\u3100-\u312F\u31A0-\u31BF\u3400-\u4DBF\u4E00-\u9FFF\uF900-\uFAFF]',
+  );
+
+  void _traceTts(String message) {
+    final line = '[TTS_TRACE] $message';
+    dev.log(line);
+    // print() guarantees visibility in `adb logcat` as I/flutter.
+    print(line);
+  }
 
   bool _shouldSaveAudioForQwenOmni() {
     try {
@@ -221,10 +236,64 @@ class RecordServiceHandler extends TaskHandler {
         .replaceFirst('buddy', 'buddie')
         .replaceFirst('body', 'buddie');
 
-    // Remove CJK characters to keep speech processing in English only.
-    text = text.replaceAll(_cjkCharacters, ' ');
+    // Normalize common full-width punctuation before filtering.
+    text = text
+        .replaceAll('，', ', ')
+        .replaceAll('。', '. ')
+        .replaceAll('！', '! ')
+        .replaceAll('？', '? ')
+        .replaceAll('：', ': ')
+        .replaceAll('；', '; ')
+        .replaceAll('（', ' (')
+        .replaceAll('）', ') ')
+        .replaceAll('“', '"')
+        .replaceAll('”', '"')
+        .replaceAll('‘', "'")
+        .replaceAll('’', "'");
+
+    // Remove East Asian characters completely.
+    text = text.replaceAll(_eastAsianCharacters, ' ');
+    // Keep printable ASCII only.
+    text = text.replaceAll(RegExp(r'[^\x20-\x7E]'), ' ');
     text = text.replaceAll(RegExp(r'\s+'), ' ').trim();
+    // Drop pure-noise chunks that have no English letters.
+    if (!RegExp(r'[A-Za-z]').hasMatch(text)) return '';
     return text;
+  }
+
+  String _sanitizeAssistantText(String raw) {
+    if (raw.isEmpty) return '';
+    var text = raw
+        .replaceAll(_cjkCharacters, ' ')
+        .replaceAll(_eastAsianCharacters, ' ')
+        .replaceAll(RegExp(r'[^\x20-\x7E]'), ' ')
+        .replaceAll(RegExp(r'\s+'), ' ')
+        .trim();
+    return text;
+  }
+
+  String _englishFallbackReply() {
+    return 'Sorry, I can only respond in English right now.';
+  }
+
+  String _ensureEnglishAssistantText(String raw) {
+    final cleaned = _sanitizeAssistantText(raw);
+    return cleaned.isEmpty ? _englishFallbackReply() : cleaned;
+  }
+
+  bool _looksLikeEnglish(String text) {
+    return RegExp(r'[A-Za-z]').hasMatch(text);
+  }
+
+  String _sanitizeStreamChunk(String raw) {
+    final cleaned = _sanitizeAssistantText(raw);
+    if (cleaned.isEmpty) return '';
+    // If a tiny chunk has no letters, keep it only if it is punctuation.
+    if (!_looksLikeEnglish(cleaned) &&
+        !RegExp(r'^[\s\.,!?:;\-\(\)\[\]]+$').hasMatch(cleaned)) {
+      return '';
+    }
+    return cleaned;
   }
 
   String _prepareTextForSpeech(String input) {
@@ -233,6 +302,7 @@ class RecordServiceHandler extends TaskHandler {
     text = text.replaceAll(RegExp(r'https?://\S+'), '');
     text = text.replaceAll(RegExp(r'[_*#`]+'), ' ');
     text = text.replaceAll('\n', '. ');
+    text = _sanitizeAssistantText(text);
     text = text.replaceAll(RegExp(r'\s+'), ' ').trim();
     return text;
   }
@@ -280,6 +350,21 @@ class RecordServiceHandler extends TaskHandler {
     return true;
   }
 
+  bool _shouldStartVoiceReply(String text) {
+    if (_isMeeting) return false;
+
+    final lower = text.toLowerCase();
+    if (wakeword_constants.wakeWordEndDialog.any(lower.contains)) {
+      return false;
+    }
+
+    final now = DateTime.now().millisecondsSinceEpoch;
+    final recentlyRecording = now <= _replyGraceUntilMs;
+    // Reply when dialog mode is active, recording is on, or user just stopped
+    // recording and we still have a finalized utterance to answer.
+    return _inDialogMode || _onRecording || recentlyRecording;
+  }
+
   @override
   Future<void> onStart(DateTime timestamp, TaskStarter starter) async {
     await DefaultConfig.initialize();
@@ -312,6 +397,9 @@ class RecordServiceHandler extends TaskHandler {
     await _cloudAsr.init();
     _cloudAsr.onASRResult = onASRResult;
     await _startRecord();
+    _traceTts(
+      'service started asrMode=${_currentAsrMode.storageKey} cloudAvailable=${_cloudAsr.isAvailable}',
+    );
     // await _cloudTts.init();
   }
 
@@ -413,8 +501,12 @@ class RecordServiceHandler extends TaskHandler {
       return;
     } else if (data == 'startRecording') {
       _onRecording = true;
+      _replyGraceUntilMs = DateTime.now().millisecondsSinceEpoch + 10000;
+      _traceTts('recording=true');
     } else if (data == 'stopRecording') {
       _onRecording = false;
+      _replyGraceUntilMs = DateTime.now().millisecondsSinceEpoch + 10000;
+      _traceTts('recording=false grace=10s');
     } else if (data == 'device') {
       var remoteId = await FlutterForegroundTask.getData(key: 'deviceRemoteId');
       if (remoteId != null) {
@@ -678,15 +770,19 @@ class RecordServiceHandler extends TaskHandler {
     _flutterTts = FlutterTts();
     _flutterTts.setStartHandler(() {
       _isTtsSpeaking = true;
+      _traceTts('start');
     });
     _flutterTts.setCompletionHandler(() {
       _isTtsSpeaking = false;
+      _traceTts('complete');
     });
     _flutterTts.setCancelHandler(() {
       _isTtsSpeaking = false;
+      _traceTts('cancel');
     });
     _flutterTts.setErrorHandler((_) {
       _isTtsSpeaking = false;
+      _traceTts('error');
     });
 
     await _flutterTts.awaitSpeakCompletion(true);
@@ -702,6 +798,7 @@ class RecordServiceHandler extends TaskHandler {
             );
         if (preferred.isNotEmpty) {
           await _flutterTts.setEngine(preferred);
+          _traceTts('engine=$preferred');
         }
       } catch (e) {
         dev.log('TTS engine select failed: $e');
@@ -723,9 +820,11 @@ class RecordServiceHandler extends TaskHandler {
         }
       }
       await _flutterTts.setLanguage(selectedLanguage ?? 'en-US');
+      _traceTts('language=${selectedLanguage ?? "en-US"}');
     } catch (e) {
       dev.log('TTS language select failed: $e');
       await _flutterTts.setLanguage('en-US');
+      _traceTts('language=en-US (fallback)');
     }
 
     try {
@@ -733,6 +832,7 @@ class RecordServiceHandler extends TaskHandler {
       final bestVoice = _pickBestEnglishVoice(voices);
       if (bestVoice != null) {
         await _flutterTts.setVoice(bestVoice);
+        _traceTts('voice=${bestVoice['name']} locale=${bestVoice['locale']}');
       }
     } catch (e) {
       dev.log('TTS voice select failed: $e');
@@ -744,6 +844,7 @@ class RecordServiceHandler extends TaskHandler {
     if (Platform.isAndroid) {
       await _flutterTts.setQueueMode(1);
     }
+    _traceTts('init done');
   }
 
   Future<void> _initAsr() async {
@@ -777,6 +878,9 @@ class RecordServiceHandler extends TaskHandler {
     });
 
     FlutterForegroundTask.saveData(key: 'isRecording', value: true);
+    _traceTts(
+      'record start asrMode=${_currentAsrMode.storageKey} cloudEnabled=$_isUsingCloudServices',
+    );
     // create stop action button
     FlutterForegroundTask.updateService(
       notificationText: 'Recording...',
@@ -808,7 +912,12 @@ class RecordServiceHandler extends TaskHandler {
       return;
     }
 
+    _traceTts(
+      'asr textLen=${text.length} isFinish=$isFinish dialog=$_inDialogMode meeting=$_isMeeting ttsSpeaking=$_isTtsSpeaking',
+    );
+
     if (_shouldInterruptTts(text, isFinish)) {
+      _traceTts('interrupt by finalized user speech');
       _currentChatSubscription?.cancel();
       _currentChatSubscription = null;
       _isProcessingChat = false;
@@ -946,8 +1055,15 @@ class RecordServiceHandler extends TaskHandler {
       }
     }
 
-    if (_inDialogMode) {
+    if (_shouldStartVoiceReply(text)) {
+      _traceTts(
+        'start chat stream (voice) dialog=$_inDialogMode recording=$_onRecording',
+      );
       _startChatStreamingRequest(text, null);
+    } else {
+      _traceTts(
+        'skip chat stream (voice) dialog=$_inDialogMode recording=$_onRecording meeting=$_isMeeting',
+      );
     }
   }
 
@@ -1024,9 +1140,11 @@ class RecordServiceHandler extends TaskHandler {
 
         segment = await _asrServiceIsolate.sendData(paddedSamples);
       }
-      segment = segment
-          .replaceFirst('Buddy', 'Buddie')
-          .replaceFirst('buddy', 'buddie');
+      segment = _sanitizeAsrText(segment);
+      if (segment.isEmpty) {
+        _traceTts('drop ASR segment: non-English/noise');
+        continue;
+      }
 
       text += segment;
 
@@ -1075,6 +1193,12 @@ class RecordServiceHandler extends TaskHandler {
   }) {
     if (text.isEmpty) return;
 
+    text = _sanitizeAsrText(text);
+    if (text.isEmpty) {
+      _traceTts('drop final result: non-English/noise');
+      return;
+    }
+
     text = text.trim();
     text = TextProcessUtils.removeBracketsContent(text);
     text = TextProcessUtils.clearIfRepeatedMoreThanFiveTimes(text);
@@ -1083,6 +1207,10 @@ class RecordServiceHandler extends TaskHandler {
     if (text.isEmpty) {
       return;
     }
+
+    _traceTts(
+      'finalResult speaker=$speaker dialog=$_inDialogMode meeting=$_isMeeting textLen=${text.length}',
+    );
 
     if (_currentAsrMessageId != null && speaker == 'user') {
       FlutterForegroundTask.sendDataToMain({
@@ -1183,9 +1311,20 @@ class RecordServiceHandler extends TaskHandler {
             _flutterTts.stop();
             AudioPlayer().play(AssetSource('audios/beep.wav'));
           } else {
+            _traceTts('start chat stream (dialog mode)');
             _startChatStreamingRequest(text, lastAsrAudioData);
           }
         } else {
+          if (_shouldStartVoiceReply(text)) {
+            _traceTts(
+              'start chat stream (recording mode) dialog=$_inDialogMode recording=$_onRecording',
+            );
+            _startChatStreamingRequest(text, lastAsrAudioData);
+          } else {
+            _traceTts(
+              'skip chat stream (not in dialog mode) recording=$_onRecording meeting=$_isMeeting',
+            );
+          }
           _objectBoxService.insertDefaultRecord(
             RecordEntity(role: 'user', content: text),
           );
@@ -1198,6 +1337,7 @@ class RecordServiceHandler extends TaskHandler {
   // Start one streaming request at a time and speak the final assistant answer.
   void _startChatStreamingRequest(String text, Float32List? lastAsrAudioData) {
     if (_isProcessingChat) {
+      _traceTts('skip new stream; previous stream still processing');
       return;
     }
 
@@ -1210,6 +1350,7 @@ class RecordServiceHandler extends TaskHandler {
     try {
       final isQwenOmni =
           _unifiedChatManager.getCurrentLLMType() == LLMType.qwenOmni;
+      _traceTts('stream start llm=${isQwenOmni ? "qwenOmni" : "default"}');
 
       final stream = isQwenOmni
           ? _unifiedChatManager.createStreamingRequestWithAudio(
@@ -1225,39 +1366,54 @@ class RecordServiceHandler extends TaskHandler {
           final parsed = _parseChatStreamResponse(response);
           if (parsed == null) return;
 
-          if (parsed.deltaText.isNotEmpty) {
-            assistantBuffer.write(parsed.deltaText);
+          final deltaText = _sanitizeStreamChunk(parsed.deltaText);
+          final contentText = _sanitizeAssistantText(parsed.content);
+
+          if (deltaText.isNotEmpty) {
+            assistantBuffer.write(deltaText);
           }
 
-          FlutterForegroundTask.sendDataToMain({
-            'currentText': text,
-            'isFinished': parsed.isFinished,
-            'content': parsed.deltaText.isNotEmpty
-                ? parsed.deltaText
-                : parsed.content,
-          });
+          final outboundContent = deltaText.isNotEmpty
+              ? deltaText
+              : contentText;
+          if (outboundContent.isNotEmpty) {
+            FlutterForegroundTask.sendDataToMain({
+              'currentText': text,
+              'isFinished': parsed.isFinished,
+              'content': outboundContent,
+            });
+          }
 
           if (!parsed.isFinished || finalized) {
             return;
           }
 
           finalized = true;
-          final finalContent = parsed.content.isNotEmpty
-              ? parsed.content
+          _traceTts('stream finished; finalizing assistant reply');
+          final finalContent = contentText.isNotEmpty
+              ? contentText
               : assistantBuffer.toString();
           await _finalizeAssistantReply(finalContent);
           _isProcessingChat = false;
         },
         onError: (error) {
           dev.log('Chat streaming error: $error');
+          _traceTts('stream error=$error');
           _isProcessingChat = false;
         },
         onDone: () {
+          _traceTts('stream done finalized=$finalized');
           if (!finalized) {
             finalized = true;
             final fallbackContent = assistantBuffer.toString();
             if (fallbackContent.trim().isNotEmpty) {
+              _traceTts('stream fallback finalize');
               _finalizeAssistantReply(fallbackContent);
+            } else {
+              _traceTts(
+                'stream fallback empty; finalize with English fallback',
+              );
+              _finalizeAssistantReply(_englishFallbackReply());
             }
           }
           _isProcessingChat = false;
@@ -1291,10 +1447,9 @@ class RecordServiceHandler extends TaskHandler {
   }
 
   Future<void> _finalizeAssistantReply(String content) async {
-    final finalContent = content.trim();
-    if (finalContent.isEmpty) {
-      return;
-    }
+    final finalContent = _ensureEnglishAssistantText(content.trim());
+
+    _traceTts('finalize assistant contentLen=${finalContent.length}');
 
     _objectBoxService.insertDialogueRecord(
       RecordEntity(role: 'assistant', content: finalContent),
@@ -1305,19 +1460,24 @@ class RecordServiceHandler extends TaskHandler {
 
   Future<void> _speakAssistantReply(String content) async {
     if (_isMeeting) {
+      _traceTts('skip speak: in meeting mode');
       return;
     }
 
     final text = _prepareTextForSpeech(content);
     if (text.isEmpty) {
+      _traceTts('skip speak: empty text after cleanup');
       return;
     }
 
     try {
+      _traceTts('speak request textLen=${text.length}');
       await _flutterTts.stop();
       await _flutterTts.speak(text);
+      _traceTts('speak request submitted');
     } catch (e) {
       dev.log('TTS playback error: $e');
+      _traceTts('speak error=$e');
     }
   }
 

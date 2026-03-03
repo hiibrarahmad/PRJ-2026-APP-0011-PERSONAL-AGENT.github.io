@@ -45,7 +45,12 @@ class ChatListTile extends StatelessWidget {
     bool isUser = role == 'user';
     bool isAssistant = role == 'assistant';
     TextStyle textStyle =
-        style ?? const TextStyle(fontWeight: FontWeight.bold, fontSize: 14);
+        style ?? const TextStyle(fontWeight: FontWeight.w600, fontSize: 14);
+    final bubbleTextColor = isUser
+        ? ThemeConstants.text
+        : ThemeConstants.text.withAlpha(230);
+    final maxWidth = MediaQuery.of(context).size.width * 0.76;
+
     return Row(
       mainAxisAlignment: isUser
           ? MainAxisAlignment.end
@@ -55,32 +60,82 @@ class ChatListTile extends StatelessWidget {
         if (!isUser)
           Padding(
             padding: EdgeInsets.only(right: _iconRight),
-            child: BudIcon(
-              icon: isAssistant
-                  ? AssetsUtil.icon_chat_logo
-                  : AssetsUtil.icon_chat_meeting,
-              size: _iconSize,
-            ),
-          ),
-        Flexible(
-          child: GestureDetector(
-            onLongPress: onLongPress,
-            child: ChatContainer(
-              role: role,
-              margin: _getChatContainerMargin(role),
-              padding:
-                  padding ??
-                  EdgeInsets.symmetric(horizontal: 18.sp, vertical: 12.sp),
-              child: Text(
-                text,
-                style: textStyle.copyWith(
-                  color: isLightMode
-                      ? const Color(0xFF1D1F23)
-                      : isUser
-                      ? ThemeConstants.text
-                      : ThemeConstants.text.withAlpha(220),
+            child: Container(
+              width: _iconSize + 10.sp,
+              height: _iconSize + 10.sp,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: ThemeConstants.panelElevated,
+                border: Border.all(
+                  color:
+                      (isAssistant
+                              ? ThemeConstants.neonMint
+                              : ThemeConstants.neonBlue)
+                          .withAlpha(155),
+                ),
+                boxShadow: [
+                  BoxShadow(
+                    color:
+                        (isAssistant
+                                ? ThemeConstants.neonMint
+                                : ThemeConstants.neonBlue)
+                            .withAlpha(45),
+                    blurRadius: 12,
+                  ),
+                ],
+              ),
+              child: Center(
+                child: BudIcon(
+                  icon: isAssistant
+                      ? AssetsUtil.icon_chat_logo
+                      : AssetsUtil.icon_chat_meeting,
+                  size: _iconSize,
                 ),
               ),
+            ),
+          ),
+        ConstrainedBox(
+          constraints: BoxConstraints(maxWidth: maxWidth),
+          child: GestureDetector(
+            onLongPress: onLongPress,
+            child: Column(
+              crossAxisAlignment: isUser
+                  ? CrossAxisAlignment.end
+                  : CrossAxisAlignment.start,
+              children: [
+                Padding(
+                  padding: EdgeInsets.only(
+                    bottom: 4.sp,
+                    left: isUser ? 0 : 4.sp,
+                    right: isUser ? 4.sp : 0,
+                  ),
+                  child: Text(
+                    isUser ? 'YOU' : (isAssistant ? 'I.A AGENT' : 'TRANSCRIPT'),
+                    style: TextStyle(
+                      color: ThemeConstants.textSecondary,
+                      fontSize: 10.sp,
+                      letterSpacing: 1.2,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ),
+                ChatContainer(
+                  role: role,
+                  margin: _getChatContainerMargin(role),
+                  padding:
+                      padding ??
+                      EdgeInsets.symmetric(horizontal: 18.sp, vertical: 12.sp),
+                  child: Text(
+                    text,
+                    style: textStyle.copyWith(
+                      height: 1.4,
+                      color: isLightMode
+                          ? const Color(0xFF1D1F23)
+                          : bubbleTextColor,
+                    ),
+                  ),
+                ),
+              ],
             ),
           ),
         ),

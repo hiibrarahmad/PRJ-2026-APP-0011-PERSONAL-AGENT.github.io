@@ -2,6 +2,7 @@
 
 import 'dart:io';
 
+import 'package:app/constants/theme_constants.dart';
 import 'package:app/constants/welcome_constants.dart';
 import 'package:app/extension/media_query_data_extension.dart';
 import 'package:app/utils/route_utils.dart';
@@ -487,88 +488,112 @@ class _HomeChatScreenState extends State<HomeChatScreen>
       child: Scaffold(
         resizeToAvoidBottomInset: true,
         body: AppBackground(
-          child: Padding(
-            padding: EdgeInsets.only(
-              top: MediaQuery.of(context).padding.top,
-              left: 10.sp,
-              right: 10.sp,
-              bottom: MediaQuery.of(context).fixedBottom,
-            ),
-            child: Column(
-              children: [
-                Padding(
-                  padding: EdgeInsets.symmetric(vertical: 8.sp),
-                  child: HomeAppBar(
-                    bluetoothConnected: _effectiveBluetoothState(),
-                    onTapBluetooth: _onClickBluetooth,
-                  ),
+          child: Align(
+            alignment: Alignment.topCenter,
+            child: ConstrainedBox(
+              constraints: BoxConstraints(
+                maxWidth: MediaQuery.of(context).size.width > 700 ? 680 : 560,
+              ),
+              child: Padding(
+                padding: EdgeInsets.only(
+                  top: MediaQuery.of(context).padding.top,
+                  left: 12.sp,
+                  right: 12.sp,
+                  bottom: MediaQuery.of(context).fixedBottom,
                 ),
-                SizedBox(height: 18.sp),
-                Expanded(
-                  child: Padding(
-                    padding: EdgeInsets.only(bottom: 8.sp),
-                    child: Stack(
-                      children: [
-                        RefreshIndicator(
-                          displacement: 10,
-                          onRefresh: _chatController.loadMoreMessages,
-                          child: ClipRect(
-                            child: CustomScrollView(
-                              controller: _chatController.scrollController,
-                              clipBehavior: Clip.none,
-                              center: centerKey,
-                              cacheExtent: 3,
-                              slivers: slivers,
+                child: Column(
+                  children: [
+                    Padding(
+                      padding: EdgeInsets.symmetric(vertical: 8.sp),
+                      child: HomeAppBar(
+                        bluetoothConnected: _effectiveBluetoothState(),
+                        onTapBluetooth: _onClickBluetooth,
+                      ),
+                    ),
+                    SizedBox(height: 12.sp),
+                    Expanded(
+                      child: Padding(
+                        padding: EdgeInsets.only(bottom: 10.sp),
+                        child: Stack(
+                          children: [
+                            RefreshIndicator(
+                              displacement: 10,
+                              onRefresh: _chatController.loadMoreMessages,
+                              child: ClipRect(
+                                child: CustomScrollView(
+                                  controller: _chatController.scrollController,
+                                  clipBehavior: Clip.none,
+                                  center: centerKey,
+                                  cacheExtent: 3,
+                                  slivers: slivers,
+                                ),
+                              ),
                             ),
-                          ),
-                        ),
-                        Align(
-                          alignment: AlignmentDirectional.bottomEnd,
-                          child: ValueListenableBuilder(
-                            valueListenable: _chatController.unReadMessageId,
-                            builder: (context, ids, _) {
-                              if (ids.isEmpty) return const SizedBox();
-                              return GestureDetector(
-                                onTap: () {
-                                  _chatController.unReadMessageId.value = {};
-                                  _chatController.firstScrollToBottom();
-                                },
-                                child: Container(
-                                  width: 30,
-                                  height: 30,
-                                  decoration: BoxDecoration(
-                                    borderRadius: BorderRadius.circular(30),
-                                    color: Colors.blue,
-                                  ),
-                                  child: Center(
-                                    child: Text(
-                                      ids.length.toString(),
-                                      style: const TextStyle(
-                                        color: Colors.white,
+                            Align(
+                              alignment: AlignmentDirectional.bottomEnd,
+                              child: ValueListenableBuilder(
+                                valueListenable:
+                                    _chatController.unReadMessageId,
+                                builder: (context, ids, _) {
+                                  if (ids.isEmpty) return const SizedBox();
+                                  return GestureDetector(
+                                    onTap: () {
+                                      _chatController.unReadMessageId.value =
+                                          {};
+                                      _chatController.firstScrollToBottom();
+                                    },
+                                    child: AnimatedContainer(
+                                      duration: const Duration(
+                                        milliseconds: 220,
+                                      ),
+                                      width: 34.sp,
+                                      height: 34.sp,
+                                      decoration: BoxDecoration(
+                                        shape: BoxShape.circle,
+                                        gradient:
+                                            ThemeConstants.primaryGlowGradient,
+                                        boxShadow: [
+                                          BoxShadow(
+                                            color: ThemeConstants.primary
+                                                .withAlpha(95),
+                                            blurRadius: 14,
+                                          ),
+                                        ],
+                                      ),
+                                      child: Center(
+                                        child: Text(
+                                          ids.length.toString(),
+                                          style: TextStyle(
+                                            color: ThemeConstants.background,
+                                            fontSize: 12.sp,
+                                            fontWeight: FontWeight.w800,
+                                          ),
+                                        ),
                                       ),
                                     ),
-                                  ),
-                                ),
-                              );
-                            },
-                          ),
+                                  );
+                                },
+                              ),
+                            ),
+                          ],
                         ),
-                      ],
+                      ),
                     ),
-                  ),
+                    HomeBottomBar(
+                      controller: _chatController.textController,
+                      onTapKeyboard: _onClickKeyboard,
+                      onSubmitted: (_) {},
+                      onTapSend: _onClickSendMessage,
+                      onTapLeft: _onClickRecord,
+                      onTapHelp: _onClickHelp,
+                      onTapRight: _onClickBottomRight,
+                      isRecording: _audioController.isRecording,
+                      isSpeakValueNotifier:
+                          _chatController.isSpeakValueNotifier,
+                    ),
+                  ],
                 ),
-                HomeBottomBar(
-                  controller: _chatController.textController,
-                  onTapKeyboard: _onClickKeyboard,
-                  onSubmitted: (_) {},
-                  onTapSend: _onClickSendMessage,
-                  onTapLeft: _onClickRecord,
-                  onTapHelp: _onClickHelp,
-                  onTapRight: _onClickBottomRight,
-                  isRecording: _audioController.isRecording,
-                  isSpeakValueNotifier: _chatController.isSpeakValueNotifier,
-                ),
-              ],
+              ),
             ),
           ),
         ),

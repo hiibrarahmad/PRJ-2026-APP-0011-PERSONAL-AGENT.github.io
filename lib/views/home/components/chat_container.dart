@@ -20,99 +20,54 @@ class ChatContainer extends StatelessWidget {
     this.child,
   });
 
-  final BoxShadow darkBoxShadow = const BoxShadow(
-    color: Color(0x2600B8D4),
-    blurRadius: 18,
-  );
+  BoxDecoration _buildDecoration({required bool isLightMode}) {
+    final isUser = role == 'user';
+    final isAssistant = role == 'assistant';
+    final baseColor = isUser
+        ? ThemeConstants.primaryDark.withAlpha(150)
+        : isAssistant
+        ? ThemeConstants.panelElevated.withAlpha(220)
+        : ThemeConstants.surface.withAlpha(220);
 
-  BoxDecoration getUserDecoration(bool isLightMode) {
+    final borderColor = isUser
+        ? ThemeConstants.neonBlue.withAlpha(190)
+        : isAssistant
+        ? ThemeConstants.neonMint.withAlpha(130)
+        : ThemeConstants.textSecondary.withAlpha(110);
+
+    final gradient = isUser
+        ? const LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [Color(0xFF09839A), Color(0xFF00B8D4), Color(0xFF00D4FF)],
+          )
+        : LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [baseColor, baseColor.withAlpha(190)],
+          );
+
     return BoxDecoration(
-      gradient: isLightMode
-          ? const LinearGradient(
-              begin: Alignment.topCenter,
-              end: Alignment.bottomCenter,
-              colors: [Color(0xFFB1F4F9), Color(0xFF61D2DB)],
-            )
-          : null,
-      color: isLightMode ? null : ThemeConstants.primaryDark,
+      gradient: gradient,
+      borderRadius: BorderRadius.circular(radius),
+      border: Border.all(width: 0.8, color: borderColor),
       boxShadow: [
-        isLightMode
-            ? const BoxShadow(color: Color(0x3D10939D), blurRadius: 8)
-            : darkBoxShadow,
+        BoxShadow(
+          color: borderColor.withAlpha(isUser ? 65 : 45),
+          blurRadius: 18,
+          offset: const Offset(0, 8),
+        ),
       ],
     );
-  }
-
-  BoxDecoration getAssistantLightDecoration(bool isLightMode) {
-    return BoxDecoration(
-      gradient: isLightMode
-          ? const LinearGradient(
-              begin: Alignment.topCenter,
-              end: Alignment.bottomCenter,
-              colors: [Color(0xFFEDFEFF), Colors.white],
-            )
-          : null,
-      color: isLightMode ? null : ThemeConstants.card,
-      boxShadow: [
-        isLightMode
-            ? const BoxShadow(color: Color(0x1A29BBC6), blurRadius: 8)
-            : darkBoxShadow,
-      ],
-    );
-  }
-
-  BoxDecoration getOtherDecoration(bool isLightMode) {
-    return BoxDecoration(
-      gradient: isLightMode
-          ? const LinearGradient(colors: [Color(0xFFEDF3FF), Colors.white])
-          : null,
-      color: isLightMode ? null : ThemeConstants.surface,
-      boxShadow: [
-        isLightMode
-            ? const BoxShadow(color: Color(0x1A29BBC6), blurRadius: 8)
-            : darkBoxShadow,
-      ],
-    );
-  }
-
-  BoxDecoration getBoxDecoration({
-    required String role,
-    required bool isLightMode,
-  }) {
-    BoxDecoration decoration;
-    bool isUser = role == 'user';
-
-    if (isUser) {
-      decoration = getUserDecoration(isLightMode);
-    } else {
-      bool isAssistant = role == 'assistant';
-      if (isAssistant) {
-        decoration = getAssistantLightDecoration(isLightMode);
-      } else {
-        decoration = getOtherDecoration(isLightMode);
-      }
-    }
-    return decoration;
   }
 
   @override
   Widget build(BuildContext context) {
     final themeNotifier = Provider.of<ThemeNotifier>(context);
     bool isLightMode = themeNotifier.mode == Mode.light;
-    BoxDecoration decoration = getBoxDecoration(
-      role: role,
-      isLightMode: isLightMode,
-    );
+    final decoration = _buildDecoration(isLightMode: isLightMode);
     return Container(
-      decoration: decoration.copyWith(
-        borderRadius: BorderRadius.circular(radius),
-        border: Border.all(
-          width: 0.5,
-          color: isLightMode
-              ? Colors.white
-              : ThemeConstants.primaryDark.withAlpha(90),
-        ),
-      ),
+      decoration: decoration,
       margin: margin,
       padding:
           padding ?? EdgeInsets.symmetric(horizontal: 18.sp, vertical: 12.sp),

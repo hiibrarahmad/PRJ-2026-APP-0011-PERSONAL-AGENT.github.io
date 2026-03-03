@@ -15,7 +15,10 @@ Chat Session: {Previous dialogue in chronological order}
 User Input: {current query}
 
 # Response Language
-English
+English only.
+- Never output Chinese or any non-English script.
+- If the user input is mixed-language, translate internally and answer in English only.
+- Use plain ASCII characters only.
 
 """;
 
@@ -35,7 +38,9 @@ const String systemPromptOfHelp = """
   
   
   # Response Language
-  English
+  English only.
+  - Never output Chinese or any non-English script.
+  - Use plain ASCII characters only.
     
   """;
 

@@ -37,68 +37,89 @@ class HomeBottomBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      crossAxisAlignment: CrossAxisAlignment.center,
-      children: [
-        ChatTextField(
-          focusNode: focusNode,
-          controller: controller,
-          onTapKeyboard: onTapKeyboard,
-          onSubmitted: onSubmitted,
-          onTapSend: onTapSend,
-        ),
-        SizedBox(height: 8.sp),
-        if (onTapAsrMode != null)
-          Padding(
-            padding: EdgeInsets.symmetric(horizontal: 12.sp),
-            child: GestureDetector(
-              onTap: onTapAsrMode,
-              child: Container(
-                width: double.infinity,
-                height: 36.sp,
-                decoration: BoxDecoration(
-                  color: ThemeConstants.primary.withAlpha(26),
-                  borderRadius: BorderRadius.circular(18.sp),
-                  border: Border.all(
-                    color: ThemeConstants.primary.withAlpha(90),
-                    width: 1,
+    return Container(
+      padding: EdgeInsets.fromLTRB(8.sp, 10.sp, 8.sp, 8.sp),
+      decoration: BoxDecoration(
+        color: ThemeConstants.panel.withAlpha(196),
+        borderRadius: BorderRadius.circular(20.sp),
+        border: Border.all(color: ThemeConstants.outline),
+        boxShadow: [
+          BoxShadow(
+            color: ThemeConstants.primary.withAlpha(38),
+            blurRadius: 16,
+            offset: const Offset(0, 6),
+          ),
+        ],
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          ChatTextField(
+            focusNode: focusNode,
+            controller: controller,
+            onTapKeyboard: onTapKeyboard,
+            onSubmitted: onSubmitted,
+            onTapSend: onTapSend,
+          ),
+          SizedBox(height: 10.sp),
+          if (onTapAsrMode != null)
+            Padding(
+              padding: EdgeInsets.symmetric(horizontal: 6.sp),
+              child: GestureDetector(
+                onTap: onTapAsrMode,
+                child: Container(
+                  width: double.infinity,
+                  height: 34.sp,
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      colors: [
+                        ThemeConstants.primary.withAlpha(32),
+                        ThemeConstants.accent.withAlpha(32),
+                      ],
+                    ),
+                    borderRadius: BorderRadius.circular(999),
+                    border: Border.all(
+                      color: ThemeConstants.neonBlue.withAlpha(128),
+                      width: 0.9,
+                    ),
                   ),
-                ),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Icon(
-                      Icons.mic_external_on,
-                      size: 16.sp,
-                      color: ThemeConstants.primary,
-                    ),
-                    SizedBox(width: 8.sp),
-                    Text(
-                      'Switch ASR mode',
-                      style: TextStyle(
-                        fontSize: 14.sp,
-                        color: ThemeConstants.primary,
-                        fontWeight: FontWeight.w500,
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(
+                        Icons.mic_external_on,
+                        size: 15.sp,
+                        color: ThemeConstants.neonBlue,
                       ),
-                    ),
-                  ],
+                      SizedBox(width: 8.sp),
+                      Text(
+                        'Switch ASR mode',
+                        style: TextStyle(
+                          fontSize: 12.sp,
+                          color: ThemeConstants.neonBlue,
+                          fontWeight: FontWeight.w600,
+                          letterSpacing: 0.4,
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ),
             ),
+          if (onTapAsrMode != null) SizedBox(height: 10.sp),
+          Padding(
+            padding: EdgeInsets.symmetric(horizontal: 4.sp),
+            child: ChatBottomButtons(
+              onTapLeft: onTapLeft,
+              onTapHelp: onTapHelp,
+              onTapRight: onTapRight,
+              isRecording: isRecording,
+              isSpeakValueNotifier: isSpeakValueNotifier,
+            ),
           ),
-        if (onTapAsrMode != null) SizedBox(height: 8.sp),
-        Padding(
-          padding: EdgeInsets.symmetric(horizontal: 12.sp),
-          child: ChatBottomButtons(
-            onTapLeft: onTapLeft,
-            onTapHelp: onTapHelp,
-            onTapRight: onTapRight,
-            isRecording: isRecording,
-            isSpeakValueNotifier: isSpeakValueNotifier,
-          ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 }
